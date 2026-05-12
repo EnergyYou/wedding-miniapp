@@ -33,7 +33,7 @@ const isLoggedIn = computed(() => !!userStore.token)
 const isCoupleBound = computed(() => coupleStore.isBound)
 
 function goToCoupleBind() {
-  uni.navigateTo({ url: '/pages/couple/bind' })
+  uni.navigateTo({ url: '/pages/couple/index' })
 }
 </script>
 
