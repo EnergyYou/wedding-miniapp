@@ -1,0 +1,28 @@
+{
+  "pages": [
+    { "path": "pages/index/index", "style": { "navigationBarTitleText": "备婚" } },
+    { "path": "pages/budget/index", "style": { "navigationBarTitleText": "预算" } },
+    { "path": "pages/mine/index", "style": { "navigationBarTitleText": "我的" } },
+    { "path": "pages/items/index", "style": { "navigationBarTitleText": "物品清单" } },
+    { "path": "pages/vendors/index", "style": { "navigationBarTitleText": "供应商" } },
+    { "path": "pages/speeches/index", "style": { "navigationBarTitleText": "婚礼话术" } },
+    { "path": "pages/couple/index", "style": { "navigationBarTitleText": "情侣绑定" } }
+  ],
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#E8A0BF",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "备婚" },
+      { "pagePath": "pages/budget/index", "text": "预算" },
+      { "pagePath": "pages/mine/index", "text": "我的" }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "备婚清单",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#FFF5F7"
+  }
+}
