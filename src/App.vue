@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
+import { silentLogin } from '@/utils/auth'
 
 onLaunch(() => {
   console.log('App Launch')
+  silentLogin()
 })
 
 onShow(() => {
