@@ -1,12 +1,12 @@
 {
   "name": "备婚清单",
-  "appid": "",
+  "appid": "wx3f68eaa82cee73ac",
   "description": "备婚准备助手小程序",
   "versionName": "0.1.0",
   "versionCode": "100",
   "transformPx": false,
   "mp-weixin": {
-    "appid": "",
+    "appid": "wx3f68eaa82cee73ac",
     "setting": {
       "urlCheck": false,
       "es6": true,
