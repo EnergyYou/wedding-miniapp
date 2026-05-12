@@ -1,29 +1,565 @@
 <template>
-  <view class="container">
-    <text class="title">预算管理</text>
-    <text class="subtitle">项目初始化成功</text>
+  <view class="page">
+    <!-- Custom Header -->
+    <view class="header" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="header-content">
+        <text class="header-title">预算管理</text>
+        <text class="header-subtitle">
+          总预算 ¥{{ formatAmount(totalBudget) }} · 已用 {{ usedPercentage }}%
+        </text>
+      </view>
+    </view>
+
+    <!-- Scrollable Body -->
+    <scroll-view class="body" scroll-y enhanced :show-scrollbar="false">
+      <!-- Ring Chart Card -->
+      <view class="chart-card">
+        <view class="ring-wrapper">
+          <view class="ring-chart" :style="ringChartStyle">
+            <view class="ring-inner">
+              <text class="ring-percent">{{ usedPercentage }}%</text>
+              <text class="ring-label">已使用</text>
+            </view>
+          </view>
+        </view>
+        <view class="chart-stats">
+          <view class="chart-stat-row">
+            <text class="chart-stat-label">总预算</text>
+            <text class="chart-stat-value">¥{{ formatAmount(totalBudget) }}</text>
+          </view>
+          <view class="chart-stat-row">
+            <text class="chart-stat-label">已支出</text>
+            <text class="chart-stat-value expense">¥{{ formatAmount(totalExpense) }}</text>
+          </view>
+          <view class="chart-stat-row">
+            <text class="chart-stat-label">剩余</text>
+            <text class="chart-stat-value remaining">¥{{ formatAmount(totalRemaining) }}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Quick Stats Row -->
+      <view class="quick-stats">
+        <view class="quick-stat-card">
+          <view class="quick-stat-icon gold">
+            <text class="icon-text">💰</text>
+          </view>
+          <text class="quick-stat-label">总预算</text>
+          <text class="quick-stat-amount">¥{{ formatAmount(totalBudget) }}</text>
+        </view>
+        <view class="quick-stat-card">
+          <view class="quick-stat-icon pink">
+            <text class="icon-text">📊</text>
+          </view>
+          <text class="quick-stat-label">已支出</text>
+          <text class="quick-stat-amount">¥{{ formatAmount(totalExpense) }}</text>
+        </view>
+        <view class="quick-stat-card">
+          <view class="quick-stat-icon green">
+            <text class="icon-text">💡</text>
+          </view>
+          <text class="quick-stat-label">剩余</text>
+          <text class="quick-stat-amount">¥{{ formatAmount(totalRemaining) }}</text>
+        </view>
+      </view>
+
+      <!-- Category List -->
+      <view class="section-title">
+        <text class="section-title-text">预算分类</text>
+      </view>
+
+      <view
+        v-for="cat in categoryList"
+        :key="cat.name"
+        class="category-card"
+        :class="{ 'over-budget': cat.isOverBudget }"
+        @tap="onCategoryTap(cat)"
+      >
+        <view class="cat-left">
+          <view class="cat-icon" :style="{ backgroundColor: cat.color }">
+            <text class="cat-icon-text">{{ cat.icon }}</text>
+          </view>
+        </view>
+        <view class="cat-center">
+          <view class="cat-name-row">
+            <text class="cat-name">{{ cat.name }}</text>
+            <view class="cat-badge" :class="cat.badgeLevel">
+              <text class="cat-badge-text">{{ cat.percentText }}</text>
+            </view>
+          </view>
+          <text class="cat-amount">
+            ¥{{ formatAmount(cat.actual) }} / ¥{{ formatAmount(cat.planned) }}
+          </text>
+          <view class="progress-track">
+            <view
+              class="progress-fill"
+              :style="{
+                width: cat.progressWidth,
+                background: cat.progressGradient
+              }"
+            />
+          </view>
+          <text v-if="cat.isOverBudget" class="over-budget-text">
+            超支 ¥{{ formatAmount(cat.actual - cat.planned) }}
+          </text>
+        </view>
+      </view>
+
+      <!-- Bottom spacer for fixed button + tab bar -->
+      <view class="bottom-spacer" />
+    </scroll-view>
+
+    <!-- Fixed Add Expense Button -->
+    <view class="fixed-bottom">
+      <button class="add-expense-btn" @tap="onAddExpense">
+        <text class="add-expense-btn-text">+ 记一笔支出</text>
+      </button>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+
+// ---------- Status bar height ----------
+const statusBarHeight = ref(44)
+
+onMounted(() => {
+  const sysInfo = uni.getSystemInfoSync()
+  statusBarHeight.value = sysInfo.statusBarHeight ?? 44
+})
+
+// ---------- Types ----------
+interface RawCategory {
+  name: string
+  icon: string
+  color: string
+  actual: number
+  planned: number
+}
+
+interface CategoryViewModel extends RawCategory {
+  percent: number
+  percentText: string
+  progressWidth: string
+  progressGradient: string
+  badgeLevel: 'normal' | 'warning' | 'danger'
+  isOverBudget: boolean
+}
+
+// ---------- Mock data ----------
+const rawCategories = ref<RawCategory[]>([
+  { name: '婚宴酒店', icon: '🏨', color: '#E8A0BF', actual: 28000, planned: 30000 },
+  { name: '婚纱摄影', icon: '📷', color: '#D4A574', actual: 24000, planned: 20000 },
+  { name: '婚庆策划', icon: '🎪', color: '#B5838D', actual: 0, planned: 15000 },
+  { name: '婚纱礼服', icon: '👗', color: '#C9B1FF', actual: 8000, planned: 10000 },
+  { name: '婚礼用品', icon: '🎀', color: '#FFB4A2', actual: 2700, planned: 8000 },
+  { name: '其他', icon: '📦', color: '#A8DADC', actual: 3000, planned: 7000 }
+])
+
+// ---------- Enriched category list ----------
+const categoryList = computed<CategoryViewModel[]>(() =>
+  rawCategories.value.map((cat) => {
+    const percent = cat.planned > 0 ? (cat.actual / cat.planned) * 100 : 0
+    const isOverBudget = cat.actual > cat.planned
+    const clampedWidth = Math.min(percent, 100)
+
+    let badgeLevel: 'normal' | 'warning' | 'danger' = 'normal'
+    if (percent > 100) badgeLevel = 'danger'
+    else if (percent > 80) badgeLevel = 'warning'
+
+    return {
+      ...cat,
+      percent,
+      percentText: `${Math.round(percent)}%`,
+      progressWidth: `${clampedWidth}%`,
+      progressGradient: isOverBudget
+        ? 'linear-gradient(90deg, #E8A0BF, #FF4D4F)'
+        : 'linear-gradient(90deg, #E8A0BF, #D4A574)',
+      badgeLevel,
+      isOverBudget
+    }
+  })
+)
+
+// ---------- Computed totals ----------
+const totalBudget = computed(() =>
+  rawCategories.value.reduce((sum, c) => sum + c.planned, 0)
+)
+
+const totalExpense = computed(() =>
+  rawCategories.value.reduce((sum, c) => sum + c.actual, 0)
+)
+
+const totalRemaining = computed(() =>
+  Math.max(totalBudget.value - totalExpense.value, 0)
+)
+
+const usedPercentage = computed(() => {
+  if (totalBudget.value === 0) return '0.0'
+  const pct = (totalExpense.value / totalBudget.value) * 100
+  return pct.toFixed(1)
+})
+
+// ---------- Ring chart conic-gradient ----------
+const ringChartStyle = computed(() => {
+  const pct = parseFloat(usedPercentage.value)
+  const clamped = Math.min(pct, 100)
+  const usedDeg = clamped * 3.6
+  return {
+    background: `conic-gradient(#E8A0BF 0deg, #D4A574 ${usedDeg}deg, #F0E0E8 ${usedDeg}deg, #F0E0E8 360deg)`
+  }
+})
+
+// ---------- Helpers ----------
+function formatAmount(value: number): string {
+  return value.toLocaleString('zh-CN')
+}
+
+function onCategoryTap(_cat: CategoryViewModel) {
+  uni.showToast({ title: '分类详情开发中', icon: 'none' })
+}
+
+function onAddExpense() {
+  uni.showToast({ title: '记一笔支出开发中', icon: 'none' })
+}
 </script>
 
 <style lang="scss" scoped>
-.container {
+/* ---------- Page ---------- */
+.page {
+  min-height: 100vh;
+  background-color: $wedding-bg;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Header ---------- */
+.header {
+  background: linear-gradient(135deg, #E8A0BF, #D4A574);
+  padding-bottom: 48rpx;
+  border-radius: 0 0 48rpx 48rpx;
+}
+
+.header-content {
+  padding: 24rpx 40rpx 0;
+}
+
+.header-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.header-subtitle {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 8rpx;
+}
+
+/* ---------- Body ---------- */
+.body {
+  flex: 1;
+  padding: 24rpx 24rpx 0;
+}
+
+/* ---------- Ring Chart Card ---------- */
+.chart-card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 40rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4rpx 24rpx rgba(232, 160, 191, 0.12);
+}
+
+.ring-wrapper {
+  margin-bottom: 32rpx;
+}
+
+.ring-chart {
+  width: 240rpx;
+  height: 240rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-inner {
+  width: 170rpx;
+  height: 170rpx;
+  border-radius: 50%;
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 80vh;
 }
-.title {
-  font-size: 48rpx;
-  font-weight: bold;
-  color: $wedding-primary;
+
+.ring-percent {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: $wedding-text;
+  line-height: 1.2;
 }
-.subtitle {
+
+.ring-label {
+  font-size: 24rpx;
+  color: $wedding-text-light;
+  margin-top: 4rpx;
+}
+
+.chart-stats {
+  width: 100%;
+}
+
+.chart-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #F5F0F2;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.chart-stat-label {
   font-size: 28rpx;
   color: $wedding-text-light;
-  margin-top: 20rpx;
+}
+
+.chart-stat-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: $wedding-text;
+
+  &.expense {
+    color: #E8A0BF;
+  }
+
+  &.remaining {
+    color: #52C41A;
+  }
+}
+
+/* ---------- Quick Stats ---------- */
+.quick-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24rpx;
+  gap: 16rpx;
+}
+
+.quick-stat-card {
+  flex: 1;
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 24rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4rpx 16rpx rgba(232, 160, 191, 0.08);
+}
+
+.quick-stat-icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12rpx;
+
+  &.gold {
+    background: rgba(212, 165, 116, 0.15);
+  }
+
+  &.pink {
+    background: rgba(232, 160, 191, 0.15);
+  }
+
+  &.green {
+    background: rgba(82, 196, 26, 0.15);
+  }
+}
+
+.icon-text {
+  font-size: 32rpx;
+}
+
+.quick-stat-label {
+  font-size: 22rpx;
+  color: $wedding-text-light;
+  margin-bottom: 6rpx;
+}
+
+.quick-stat-amount {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: $wedding-text;
+}
+
+/* ---------- Section Title ---------- */
+.section-title {
+  margin: 32rpx 0 16rpx 8rpx;
+}
+
+.section-title-text {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: $wedding-text;
+}
+
+/* ---------- Category Card ---------- */
+.category-card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  align-items: flex-start;
+  box-shadow: 0 4rpx 16rpx rgba(232, 160, 191, 0.08);
+
+  &.over-budget {
+    border-left: 6rpx solid #FF4D4F;
+  }
+}
+
+.cat-left {
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.cat-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cat-icon-text {
+  font-size: 32rpx;
+}
+
+.cat-center {
+  flex: 1;
+  min-width: 0;
+}
+
+.cat-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.cat-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: $wedding-text;
+}
+
+.cat-badge {
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+
+  &.normal {
+    background: rgba(232, 160, 191, 0.15);
+  }
+
+  &.warning {
+    background: rgba(250, 204, 21, 0.2);
+  }
+
+  &.danger {
+    background: rgba(255, 77, 79, 0.15);
+  }
+}
+
+.cat-badge-text {
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.cat-badge.normal .cat-badge-text {
+  color: #E8A0BF;
+}
+
+.cat-badge.warning .cat-badge-text {
+  color: #D4A017;
+}
+
+.cat-badge.danger .cat-badge-text {
+  color: #FF4D4F;
+}
+
+.cat-amount {
+  font-size: 24rpx;
+  color: $wedding-text-light;
+  margin-bottom: 12rpx;
+}
+
+.progress-track {
+  width: 100%;
+  height: 12rpx;
+  background: #F0E0E8;
+  border-radius: 6rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 6rpx;
+  transition: width 0.3s ease;
+}
+
+.over-budget-text {
+  font-size: 22rpx;
+  color: #FF4D4F;
+  font-weight: 600;
+  margin-top: 8rpx;
+}
+
+/* ---------- Bottom Spacer ---------- */
+.bottom-spacer {
+  height: 180rpx;
+}
+
+/* ---------- Fixed Bottom Button ---------- */
+.fixed-bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--window-bottom) + 16rpx);
+  padding: 0 32rpx;
+  z-index: 100;
+}
+
+.add-expense-btn {
+  width: 100%;
+  height: 88rpx;
+  background: linear-gradient(135deg, #E8A0BF, #D4A574);
+  border-radius: 44rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 32rpx rgba(232, 160, 191, 0.35);
+
+  &::after {
+    border: none;
+  }
+}
+
+.add-expense-btn-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #ffffff;
 }
 </style>
