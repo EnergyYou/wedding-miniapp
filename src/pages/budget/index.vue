@@ -120,14 +120,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { getBudgetList, getBudgetSummary } from '../../api/budget'
+import type { Budget, BudgetSummary } from '../../api/budget'
 
 // ---------- Status bar height ----------
 const statusBarHeight = ref(44)
-
-onMounted(() => {
-  const sysInfo = uni.getSystemInfoSync()
-  statusBarHeight.value = sysInfo.statusBarHeight ?? 44
-})
 
 // ---------- Types ----------
 interface RawCategory {
@@ -147,15 +144,34 @@ interface CategoryViewModel extends RawCategory {
   isOverBudget: boolean
 }
 
-// ---------- Mock data ----------
-const rawCategories = ref<RawCategory[]>([
-  { name: '婚宴酒店', icon: '🏨', color: '#E8A0BF', actual: 28000, planned: 30000 },
-  { name: '婚纱摄影', icon: '📷', color: '#D4A574', actual: 24000, planned: 20000 },
-  { name: '婚庆策划', icon: '🎪', color: '#B5838D', actual: 0, planned: 15000 },
-  { name: '婚纱礼服', icon: '👗', color: '#C9B1FF', actual: 8000, planned: 10000 },
-  { name: '婚礼用品', icon: '🎀', color: '#FFB4A2', actual: 2700, planned: 8000 },
-  { name: '其他', icon: '📦', color: '#A8DADC', actual: 3000, planned: 7000 }
-])
+// ---------- Color palette for categories ----------
+const catColors = [
+  '#E8A0BF', '#D4A574', '#B5838D', '#C9B1FF', '#FFB4A2', '#A8DADC',
+  '#F4A261', '#E76F51', '#2A9D8F', '#264653', '#E9C46A', '#606C38',
+]
+
+const catIcons: Record<string, string> = {
+  '婚宴酒店': '🏨',
+  '婚纱摄影': '📷',
+  '婚庆策划': '🎪',
+  '婚纱礼服': '👗',
+  '婚礼用品': '🎀',
+  '其他': '📦',
+}
+
+// ---------- Data from API ----------
+const budgetList = ref<Budget[]>([])
+const summary = ref<BudgetSummary | null>(null)
+
+const rawCategories = computed<RawCategory[]>(() =>
+  budgetList.value.map((b, idx) => ({
+    name: b.category,
+    icon: catIcons[b.category] || '💰',
+    color: catColors[idx % catColors.length],
+    actual: parseFloat(b.actualAmount) || 0,
+    planned: parseFloat(b.plannedAmount) || 0,
+  }))
+)
 
 // ---------- Enriched category list ----------
 const categoryList = computed<CategoryViewModel[]>(() =>
@@ -184,11 +200,13 @@ const categoryList = computed<CategoryViewModel[]>(() =>
 
 // ---------- Computed totals ----------
 const totalBudget = computed(() =>
-  rawCategories.value.reduce((sum, c) => sum + c.planned, 0)
+  summary.value ? parseFloat(summary.value.totalPlanned) || 0
+    : rawCategories.value.reduce((sum, c) => sum + c.planned, 0)
 )
 
 const totalExpense = computed(() =>
-  rawCategories.value.reduce((sum, c) => sum + c.actual, 0)
+  summary.value ? parseFloat(summary.value.totalActual) || 0
+    : rawCategories.value.reduce((sum, c) => sum + c.actual, 0)
 )
 
 const totalRemaining = computed(() =>
@@ -223,6 +241,26 @@ function onCategoryTap(_cat: CategoryViewModel) {
 function onAddExpense() {
   uni.showToast({ title: '记一笔支出开发中', icon: 'none' })
 }
+
+// ---------- API fetch ----------
+async function fetchBudgetData() {
+  try {
+    const [listResult, summaryResult] = await Promise.all([
+      getBudgetList(),
+      getBudgetSummary(),
+    ])
+    budgetList.value = listResult ?? []
+    summary.value = summaryResult ?? null
+  } catch {
+    uni.showToast({ title: '获取预算数据失败', icon: 'none' })
+  }
+}
+
+onMounted(() => {
+  const sysInfo = uni.getSystemInfoSync()
+  statusBarHeight.value = sysInfo.statusBarHeight ?? 44
+  fetchBudgetData()
+})
 </script>
 
 <style lang="scss" scoped>

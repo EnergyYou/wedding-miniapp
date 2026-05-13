@@ -20,15 +20,15 @@
         <text class="summary-label">总物品</text>
       </view>
       <view class="summary-item">
-        <text class="summary-value purchased">{{ items.filter(i => i.status === 2).length }}</text>
+        <text class="summary-value purchased">{{ items.filter(i => i.purchaseStatus === 2).length }}</text>
         <text class="summary-label">已采购</text>
       </view>
       <view class="summary-item">
-        <text class="summary-value in-progress">{{ items.filter(i => i.status === 1).length }}</text>
+        <text class="summary-value in-progress">{{ items.filter(i => i.purchaseStatus === 1).length }}</text>
         <text class="summary-label">采购中</text>
       </view>
       <view class="summary-item">
-        <text class="summary-value pending">{{ items.filter(i => i.status === 0).length }}</text>
+        <text class="summary-value pending">{{ items.filter(i => i.purchaseStatus === 0).length }}</text>
         <text class="summary-label">未采购</text>
       </view>
     </view>
@@ -51,9 +51,9 @@
 
       <view v-if="!collapsedCats.has(cat.name)" class="category-items">
         <view v-for="item in getCatItems(cat.name)" :key="item.id" class="item-row">
-          <text class="status-icon" :class="statusClass(item.status)">{{ statusIcon(item.status) }}</text>
+          <text class="status-icon" :class="statusClass(item.purchaseStatus)">{{ statusIcon(item.purchaseStatus) }}</text>
           <view class="item-info">
-            <text class="item-name" :class="{ done: item.status === 2 }">{{ item.name }}</text>
+            <text class="item-name" :class="{ done: item.purchaseStatus === 2 }">{{ item.name }}</text>
             <view class="item-meta">
               <text class="item-qty">{{ item.quantity }}x ¥{{ item.price }}</text>
               <text class="assignee-badge" :class="'assignee-' + item.assignee">{{ assigneeLabel(item.assignee) }}</text>
@@ -71,20 +71,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-
-interface Item {
-  id: number
-  category: string
-  name: string
-  quantity: number
-  price: string
-  status: number // 0-未采购 1-采购中 2-已采购
-  assignee: number // 0-共同 1-新郎 2-新娘
-}
+import { ref, reactive, computed, onMounted } from 'vue'
+import { getItemList, getItemCategories } from '../../api/item'
+import type { Item } from '../../api/item'
 
 const activeFilter = ref('all')
 const collapsedCats = reactive(new Set<string>())
+const loading = ref(false)
 
 const filterTabs = [
   { key: 'all', label: '全部' },
@@ -93,31 +86,33 @@ const filterTabs = [
   { key: 'purchased', label: '已采购' },
 ]
 
-const categories = [
-  { name: '婚房用品', icon: '🏠' },
-  { name: '伴手礼', icon: '🎁' },
-  { name: '喜糖', icon: '🍬' },
-  { name: '新人用品', icon: '💒' },
-]
+const catNameToIcon: Record<string, string> = {
+  '婚房用品': '🏠',
+  '伴手礼': '🎁',
+  '喜糖': '🍬',
+  '新人用品': '💒',
+}
 
-const items = reactive<Item[]>([
-  { id: 1, category: '婚房用品', name: '红色床上四件套', quantity: 1, price: '599', status: 2, assignee: 2 },
-  { id: 2, category: '婚房用品', name: '喜字贴纸', quantity: 10, price: '15', status: 2, assignee: 0 },
-  { id: 3, category: '婚房用品', name: '婚房气球套装', quantity: 3, price: '45', status: 1, assignee: 2 },
-  { id: 4, category: '婚房用品', name: '花瓣撒花', quantity: 5, price: '28', status: 0, assignee: 2 },
-  { id: 5, category: '婚房用品', name: '婚纱照摆台', quantity: 2, price: '120', status: 0, assignee: 0 },
-  { id: 6, category: '伴手礼', name: '伴手礼盒(女)', quantity: 20, price: '38', status: 2, assignee: 2 },
-  { id: 7, category: '伴手礼', name: '伴手礼盒(男)', quantity: 20, price: '35', status: 2, assignee: 1 },
-  { id: 8, category: '伴手礼', name: '定制感谢卡', quantity: 40, price: '8', status: 0, assignee: 0 },
-  { id: 9, category: '伴手礼', name: '精美包装袋', quantity: 40, price: '5', status: 0, assignee: 0 },
-  { id: 10, category: '喜糖', name: '德芙心语巧克力', quantity: 200, price: '2.5', status: 2, assignee: 0 },
-  { id: 11, category: '喜糖', name: '费列罗喜糖装', quantity: 100, price: '3.8', status: 1, assignee: 1 },
-  { id: 12, category: '喜糖', name: '喜糖盒', quantity: 200, price: '1.5', status: 0, assignee: 0 },
-  { id: 13, category: '新人用品', name: '新娘晨袍', quantity: 1, price: '258', status: 2, assignee: 2 },
-  { id: 14, category: '新人用品', name: '新郎领结', quantity: 1, price: '68', status: 0, assignee: 1 },
-  { id: 15, category: '新人用品', name: '婚戒盒', quantity: 1, price: '128', status: 0, assignee: 0 },
-  { id: 16, category: '新人用品', name: '敬酒茶具套装', quantity: 1, price: '399', status: 0, assignee: 0 },
-])
+const items = ref<Item[]>([])
+const categoryNames = ref<string[]>([])
+
+const categories = computed(() =>
+  categoryNames.value.map(name => ({
+    name,
+    icon: catNameToIcon[name] || '📦',
+  }))
+)
+
+const filteredItems = computed(() => {
+  if (activeFilter.value === 'all') return items.value
+  const statusMap: Record<string, number> = {
+    'pending': 0,
+    'in-progress': 1,
+    'purchased': 2,
+  }
+  const targetStatus = statusMap[activeFilter.value]
+  return items.value.filter(i => i.purchaseStatus === targetStatus)
+})
 
 function toggleCategory(name: string) {
   if (collapsedCats.has(name)) {
@@ -128,19 +123,19 @@ function toggleCategory(name: string) {
 }
 
 function getCatItems(catName: string): Item[] {
-  return items.filter(i => i.category === catName)
+  return filteredItems.value.filter(i => i.category === catName)
 }
 
 function getCatProgress(catName: string): string {
   const catItems = getCatItems(catName)
-  const done = catItems.filter(i => i.status === 2).length
+  const done = catItems.filter(i => i.purchaseStatus === 2).length
   return `${done}/${catItems.length}`
 }
 
 function getCatPercent(catName: string): number {
   const catItems = getCatItems(catName)
   if (catItems.length === 0) return 0
-  return Math.round((catItems.filter(i => i.status === 2).length / catItems.length) * 100)
+  return Math.round((catItems.filter(i => i.purchaseStatus === 2).length / catItems.length) * 100)
 }
 
 function statusIcon(status: number): string {
@@ -158,6 +153,32 @@ function assigneeLabel(assignee: number): string {
 function handleAdd() {
   uni.showToast({ title: '添加物品功能开发中', icon: 'none' })
 }
+
+async function fetchCategories() {
+  try {
+    const result = await getItemCategories()
+    categoryNames.value = result ?? []
+  } catch {
+    categoryNames.value = []
+  }
+}
+
+async function fetchItems() {
+  loading.value = true
+  try {
+    const result = await getItemList()
+    items.value = result ?? []
+  } catch {
+    uni.showToast({ title: '获取物品列表失败', icon: 'none' })
+    items.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([fetchCategories(), fetchItems()])
+})
 </script>
 
 <style lang="scss" scoped>
