@@ -26,7 +26,7 @@ export function request<T = any>(options: UniApp.RequestOptions): Promise<T> {
           resolve(data.data)
         } else if (data.code === 401) {
           userStore.clearToken()
-          uni.reLaunch({ url: '/pages/index/index' })
+          uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
           reject(new Error('未登录或登录已过期'))
         } else {
           uni.showToast({ title: data.msg || '请求失败', icon: 'none' })

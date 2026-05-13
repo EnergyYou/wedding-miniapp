@@ -53,6 +53,32 @@
       <text class="fab-icon">+</text>
       <text class="fab-label">新建话术</text>
     </view>
+
+    <!-- 新建/编辑弹窗 -->
+    <view v-if="showPopup" class="popup-mask" @tap="showPopup = false">
+      <view class="popup-content" @tap.stop>
+        <view class="popup-header">
+          <text class="popup-title">{{ editingId ? '编辑话术' : '新建话术' }}</text>
+          <text class="popup-close" @tap="showPopup = false">&times;</text>
+        </view>
+        <view class="form-group">
+          <text class="form-label">分类</text>
+          <input class="form-input" v-model="form.category" placeholder="请输入分类，如：结婚邀请" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">标题</text>
+          <input class="form-input" v-model="form.title" placeholder="请输入标题" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">内容</text>
+          <textarea class="form-textarea" v-model="form.content" placeholder="请输入话术内容" />
+        </view>
+        <view class="form-actions">
+          <button class="form-btn form-btn-cancel" @tap="showPopup = false">取消</button>
+          <button class="form-btn form-btn-submit" @tap="handleSubmit">保存</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -61,6 +87,8 @@ import { ref, computed, onMounted } from 'vue'
 import {
   getSpeechList,
   getSpeechCategories,
+  createSpeech,
+  updateSpeech,
   deleteSpeech,
   type Speech,
 } from '../../api/speech'
@@ -72,6 +100,14 @@ const categories = ref<{ key: string; label: string }[]>([
 ])
 
 const speeches = ref<Speech[]>([])
+
+const showPopup = ref(false)
+const editingId = ref<number | null>(null)
+const form = ref({
+  category: '',
+  title: '',
+  content: '',
+})
 
 const filteredSpeeches = computed(() => {
   if (activeCategory.value === 'all') return speeches.value
@@ -140,8 +176,18 @@ function handleCopy(speech: Speech) {
   })
 }
 
-function handleEdit(_speech: Speech) {
-  uni.showToast({ title: '编辑功能开发中', icon: 'none' })
+function handleEdit(speech: Speech) {
+  if (speech.isTemplate === 1) {
+    uni.showToast({ title: '系统模板不可编辑', icon: 'none' })
+    return
+  }
+  editingId.value = speech.id
+  form.value = {
+    category: speech.category,
+    title: speech.title,
+    content: speech.content || '',
+  }
+  showPopup.value = true
 }
 
 function handleDelete(speech: Speech) {
@@ -164,7 +210,43 @@ function handleDelete(speech: Speech) {
 }
 
 function handleAdd() {
-  uni.showToast({ title: '新建话术功能开发中', icon: 'none' })
+  editingId.value = null
+  form.value = {
+    category: '',
+    title: '',
+    content: '',
+  }
+  showPopup.value = true
+}
+
+async function handleSubmit() {
+  if (!form.value.title.trim()) {
+    uni.showToast({ title: '请输入标题', icon: 'none' })
+    return
+  }
+  try {
+    if (editingId.value !== null) {
+      await updateSpeech({
+        id: editingId.value,
+        category: form.value.category,
+        title: form.value.title,
+        content: form.value.content,
+      })
+      uni.showToast({ title: '保存成功', icon: 'success' })
+    } else {
+      await createSpeech({
+        category: form.value.category,
+        title: form.value.title,
+        content: form.value.content,
+      })
+      uni.showToast({ title: '创建成功', icon: 'success' })
+    }
+    showPopup.value = false
+    await Promise.all([loadSpeeches(), loadCategories()])
+  } catch (e) {
+    console.error('保存失败', e)
+    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+  }
 }
 </script>
 
@@ -339,5 +421,107 @@ function handleAdd() {
   font-size: 26rpx;
   color: #ffffff;
   font-weight: 500;
+}
+
+.popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.popup-content {
+  width: 100%;
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 40rpx 40rpx calc(40rpx + env(safe-area-inset-bottom));
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.popup-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $wedding-text;
+}
+
+.popup-close {
+  font-size: 36rpx;
+  color: #999;
+  padding: 8rpx;
+}
+
+.form-group {
+  margin-bottom: 24rpx;
+}
+
+.form-label {
+  font-size: 26rpx;
+  color: $wedding-text-light;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  background: #F8F8F8;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.form-textarea {
+  width: 100%;
+  height: 240rpx;
+  background: #F8F8F8;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+
+.form-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  text-align: center;
+  border: none;
+}
+
+.form-btn::after {
+  border: none;
+}
+
+.form-btn-cancel {
+  background: #F0F0F0;
+  color: #666;
+}
+
+.form-btn-submit {
+  background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+  color: #fff;
 }
 </style>

@@ -112,15 +112,46 @@
     <!-- Fixed Add Expense Button -->
     <view class="fixed-bottom">
       <button class="add-expense-btn" @tap="onAddExpense">
-        <text class="add-expense-btn-text">+ 记一笔支出</text>
+        <text class="add-expense-btn-text">+ 新增预算分类</text>
       </button>
+    </view>
+
+    <!-- Budget Form Popup -->
+    <view v-if="showForm" class="popup-mask" @tap="showForm = false">
+      <view class="popup-content" @tap.stop>
+        <view class="popup-header">
+          <text class="popup-title">{{ editingBudget ? '编辑预算' : '新增预算' }}</text>
+          <text class="popup-close" @tap="showForm = false">✕</text>
+        </view>
+        <view class="form-group">
+          <text class="form-label">分类名称</text>
+          <input v-model="formData.category" class="form-input" placeholder="如：婚宴酒店" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">预算金额 (元)</text>
+          <input v-model="formData.plannedAmount" class="form-input" type="digit" placeholder="0.00" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">实际支出 (元)</text>
+          <input v-model="formData.actualAmount" class="form-input" type="digit" placeholder="0.00" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">备注</text>
+          <input v-model="formData.remark" class="form-input" placeholder="选填" />
+        </view>
+        <view class="form-actions">
+          <button v-if="editingBudget" class="form-btn form-btn-delete" @tap="handleDeleteBudget">删除</button>
+          <button class="form-btn form-btn-cancel" @tap="showForm = false">取消</button>
+          <button class="form-btn form-btn-submit" @tap="handleSubmit">保存</button>
+        </view>
+      </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getBudgetList, getBudgetSummary } from '../../api/budget'
+import { getBudgetList, getBudgetSummary, createBudget, updateBudget, deleteBudget } from '../../api/budget'
 import type { Budget, BudgetSummary } from '../../api/budget'
 
 // ---------- Status bar height ----------
@@ -234,12 +265,83 @@ function formatAmount(value: number): string {
   return value.toLocaleString('zh-CN')
 }
 
-function onCategoryTap(_cat: CategoryViewModel) {
-  uni.showToast({ title: '分类详情开发中', icon: 'none' })
+function onCategoryTap(cat: CategoryViewModel) {
+  const budget = budgetList.value.find(b => b.category === cat.name)
+  if (!budget) return
+  editingBudget.value = budget
+  formData.value = {
+    category: budget.category,
+    plannedAmount: budget.plannedAmount,
+    actualAmount: budget.actualAmount,
+    remark: budget.remark || '',
+  }
+  showForm.value = true
 }
 
 function onAddExpense() {
-  uni.showToast({ title: '记一笔支出开发中', icon: 'none' })
+  editingBudget.value = null
+  formData.value = { category: '', plannedAmount: '', actualAmount: '', remark: '' }
+  showForm.value = true
+}
+
+// ---------- Form ----------
+const showForm = ref(false)
+const editingBudget = ref<Budget | null>(null)
+const formData = ref({ category: '', plannedAmount: '', actualAmount: '', remark: '' })
+
+async function handleSubmit() {
+  const d = formData.value
+  if (!d.category.trim()) {
+    uni.showToast({ title: '请输入分类名称', icon: 'none' })
+    return
+  }
+  if (!d.plannedAmount || parseFloat(d.plannedAmount) <= 0) {
+    uni.showToast({ title: '请输入预算金额', icon: 'none' })
+    return
+  }
+  try {
+    if (editingBudget.value) {
+      await updateBudget({
+        id: editingBudget.value.id,
+        category: d.category,
+        plannedAmount: d.plannedAmount,
+        actualAmount: d.actualAmount || '0',
+        remark: d.remark || undefined,
+      })
+    } else {
+      await createBudget({
+        category: d.category,
+        plannedAmount: d.plannedAmount,
+        actualAmount: d.actualAmount || '0',
+        remark: d.remark || undefined,
+      })
+    }
+    showForm.value = false
+    uni.showToast({ title: '保存成功', icon: 'success' })
+    await fetchBudgetData()
+  } catch {
+    // error handled by request wrapper
+  }
+}
+
+async function handleDeleteBudget() {
+  if (!editingBudget.value) return
+  uni.showModal({
+    title: '确认删除',
+    content: `确定要删除"${editingBudget.value.category}"的预算吗？`,
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await deleteBudget(editingBudget.value!.id)
+          showForm.value = false
+          uni.showToast({ title: '已删除', icon: 'success' })
+          await fetchBudgetData()
+        } catch {
+          // error handled by request wrapper
+        }
+      }
+    },
+  })
 }
 
 // ---------- API fetch ----------
@@ -599,5 +701,100 @@ onMounted(() => {
   font-size: 32rpx;
   font-weight: 600;
   color: #ffffff;
+}
+
+/* ---------- Popup Form ---------- */
+.popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.popup-content {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 40rpx 40rpx calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.popup-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $wedding-text;
+}
+
+.popup-close {
+  font-size: 36rpx;
+  color: #999;
+  padding: 8rpx;
+}
+
+.form-group {
+  margin-bottom: 24rpx;
+}
+
+.form-label {
+  font-size: 26rpx;
+  color: $wedding-text-light;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  background: #F8F8F8;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+
+.form-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  text-align: center;
+  border: none;
+}
+
+.form-btn::after { border: none; }
+
+.form-btn-cancel {
+  background: #F0F0F0;
+  color: #666;
+}
+
+.form-btn-submit {
+  background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+  color: #ffffff;
+}
+
+.form-btn-delete {
+  background: #FFF1F0;
+  color: #FF4D4F;
 }
 </style>

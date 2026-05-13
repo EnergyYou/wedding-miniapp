@@ -5,7 +5,7 @@ export function getCoupleInfo() {
 }
 
 export function generateInviteCode() {
-  return post<{ inviteCode: string }>('/wx/couple/generate')
+  return post<string>('/wx/couple/generate')
 }
 
 export function bindByInviteCode(inviteCode: string) {

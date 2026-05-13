@@ -87,13 +87,120 @@
       <text class="fab-icon">+</text>
     </view>
 
+    <!-- Add Task Popup -->
+    <view v-if="showPopup" class="popup-mask" @tap="closePopup">
+      <view class="popup-content" @tap.stop>
+        <view class="popup-header">
+          <text class="popup-title">添加任务</text>
+          <text class="popup-close" @tap="closePopup">&times;</text>
+        </view>
+
+        <!-- Title -->
+        <view class="form-group">
+          <text class="form-label">任务名称 *</text>
+          <input
+            v-model="formData.title"
+            class="form-input"
+            placeholder="请输入任务名称"
+            maxlength="50"
+          />
+        </view>
+
+        <!-- Timeline Stage -->
+        <view class="form-group">
+          <text class="form-label">所属阶段 *</text>
+          <scroll-view scroll-x class="stage-chips">
+            <view
+              v-for="stage in stages"
+              :key="stage.id"
+              class="stage-chip"
+              :class="{ active: formData.timelineId === stage.id }"
+              @tap="formData.timelineId = stage.id"
+            >
+              <text>{{ stage.name }}</text>
+            </view>
+          </scroll-view>
+        </view>
+
+        <!-- Assignee -->
+        <view class="form-group">
+          <text class="form-label">负责人</text>
+          <view class="form-picker">
+            <view
+              class="form-picker-item"
+              :class="{ active: formData.assignee === 0 }"
+              @tap="formData.assignee = 0"
+            >
+              <text>共同</text>
+            </view>
+            <view
+              class="form-picker-item"
+              :class="{ active: formData.assignee === 1 }"
+              @tap="formData.assignee = 1"
+            >
+              <text>新郎</text>
+            </view>
+            <view
+              class="form-picker-item"
+              :class="{ active: formData.assignee === 2 }"
+              @tap="formData.assignee = 2"
+            >
+              <text>新娘</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- Priority -->
+        <view class="form-group">
+          <text class="form-label">优先级</text>
+          <view class="form-picker">
+            <view
+              class="form-picker-item"
+              :class="{ active: formData.priority === 1 }"
+              @tap="formData.priority = 1"
+            >
+              <text>高</text>
+            </view>
+            <view
+              class="form-picker-item"
+              :class="{ active: formData.priority === 2 }"
+              @tap="formData.priority = 2"
+            >
+              <text>中</text>
+            </view>
+            <view
+              class="form-picker-item"
+              :class="{ active: formData.priority === 3 }"
+              @tap="formData.priority = 3"
+            >
+              <text>低</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- Deadline -->
+        <view class="form-group">
+          <text class="form-label">截止日期</text>
+          <picker mode="date" @change="onDateChange">
+            <view class="form-input form-date">{{ formData.deadline || '选择截止日期' }}</view>
+          </picker>
+        </view>
+
+        <!-- Actions -->
+        <view class="form-actions">
+          <button class="form-btn form-btn-cancel" @tap="closePopup">取消</button>
+          <button class="form-btn form-btn-submit" @tap="handleSubmit">确定</button>
+        </view>
+      </view>
+    </view>
+
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { getTimelineList } from '@/api/timeline'
-import { getTaskList, getTaskStats, updateTaskStatus } from '@/api/task'
+import { getTaskList, getTaskStats, updateTaskStatus, createTask } from '@/api/task'
 
 // ---------- Types ----------
 
@@ -202,6 +309,27 @@ function buildStageTag(status: StageStatus): string {
 const loading = ref(true)
 const expandedStageId = ref(-1)
 const stages = ref<Stage[]>([])
+const showPopup = ref(false)
+
+interface FormData {
+  title: string
+  timelineId: number | null
+  assignee: number
+  priority: number
+  deadline: string
+}
+
+function createEmptyForm(): FormData {
+  return {
+    title: '',
+    timelineId: null,
+    assignee: 0,
+    priority: 2,
+    deadline: '',
+  }
+}
+
+const formData = ref<FormData>(createEmptyForm())
 const completedCount = ref(0)
 const totalCount = ref(0)
 
@@ -294,7 +422,43 @@ async function toggleTask(stage: Stage, task: Task): Promise<void> {
 }
 
 function onFabTap(): void {
-  uni.showToast({ title: '添加任务（开发中）', icon: 'none' })
+  formData.value = createEmptyForm()
+  showPopup.value = true
+}
+
+function closePopup(): void {
+  showPopup.value = false
+}
+
+function onDateChange(e: { detail: { value: string } }): void {
+  formData.value.deadline = e.detail.value
+}
+
+async function handleSubmit(): Promise<void> {
+  if (!formData.value.title.trim()) {
+    uni.showToast({ title: '请输入任务名称', icon: 'none' })
+    return
+  }
+  if (formData.value.timelineId === null) {
+    uni.showToast({ title: '请选择所属阶段', icon: 'none' })
+    return
+  }
+
+  try {
+    await createTask({
+      timelineId: formData.value.timelineId,
+      title: formData.value.title.trim(),
+      assignee: formData.value.assignee,
+      priority: formData.value.priority,
+      deadline: formData.value.deadline || undefined,
+    })
+    uni.showToast({ title: '添加成功', icon: 'success' })
+    showPopup.value = false
+    await loadData()
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '添加失败'
+    uni.showToast({ title: message, icon: 'none' })
+  }
 }
 
 // ---------- Lifecycle ----------
@@ -708,6 +872,148 @@ onMounted(() => {
   font-size: 52rpx;
   color: #ffffff;
   line-height: 1;
+}
+
+// ---------- Add Task Popup ----------
+
+.popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.popup-content {
+  width: 100%;
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 40rpx 40rpx calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.popup-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $wedding-text;
+}
+
+.popup-close {
+  font-size: 36rpx;
+  color: #999;
+  padding: 8rpx;
+}
+
+.form-group {
+  margin-bottom: 24rpx;
+}
+
+.form-label {
+  font-size: 26rpx;
+  color: $wedding-text-light;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  background: #F8F8F8;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.form-date {
+  display: flex;
+  align-items: center;
+  color: #999;
+  line-height: 80rpx;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+
+.form-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  text-align: center;
+  border: none;
+}
+
+.form-btn::after {
+  border: none;
+}
+
+.form-btn-cancel {
+  background: #F0F0F0;
+  color: #666;
+}
+
+.form-btn-submit {
+  background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+  color: #fff;
+}
+
+.form-picker {
+  display: flex;
+  gap: 16rpx;
+}
+
+.form-picker-item {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  background: #F8F8F8;
+  color: #666;
+}
+
+.form-picker-item.active {
+  background: $wedding-primary;
+  color: #fff;
+}
+
+.stage-chips {
+  white-space: nowrap;
+  height: 80rpx;
+}
+
+.stage-chip {
+  display: inline-block;
+  height: 80rpx;
+  line-height: 80rpx;
+  padding: 0 28rpx;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  background: #F8F8F8;
+  color: #666;
+  margin-right: 16rpx;
+}
+
+.stage-chip.active {
+  background: $wedding-primary;
+  color: #fff;
 }
 
 </style>

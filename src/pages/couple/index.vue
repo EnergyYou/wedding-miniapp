@@ -72,6 +72,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { onShareAppMessage } from '@dcloudio/uni-app'
 import { useCoupleStore } from '@/store/couple'
 import { getCoupleInfo, generateInviteCode, bindByInviteCode } from '@/api/couple'
 
@@ -87,9 +88,10 @@ async function handleGenerate() {
   loading.value = true
   try {
     const data = await generateInviteCode()
-    inviteCode.value = data.inviteCode
-  } catch (_e) {
-    // error handled by request wrapper
+    inviteCode.value = typeof data === 'string' ? data : data.inviteCode
+  } catch (e) {
+    console.error('生成邀请码失败:', e)
+    // request wrapper 已通过 toast 提示错误
   } finally {
     loading.value = false
   }

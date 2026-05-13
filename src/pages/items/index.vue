@@ -50,7 +50,7 @@
       </view>
 
       <view v-if="!collapsedCats.has(cat.name)" class="category-items">
-        <view v-for="item in getCatItems(cat.name)" :key="item.id" class="item-row">
+        <view v-for="item in getCatItems(cat.name)" :key="item.id" class="item-row" @tap="handleEdit(item)">
           <text class="status-icon" :class="statusClass(item.purchaseStatus)">{{ statusIcon(item.purchaseStatus) }}</text>
           <view class="item-info">
             <text class="item-name" :class="{ done: item.purchaseStatus === 2 }">{{ item.name }}</text>
@@ -67,12 +67,61 @@
     <view class="fab" @tap="handleAdd">
       <text class="fab-text">+</text>
     </view>
+
+    <!-- 物品表单弹窗 -->
+    <view v-if="showForm" class="popup-mask" @tap="showForm = false">
+      <view class="popup-content" @tap.stop>
+        <view class="popup-header">
+          <text class="popup-title">{{ editingItem ? '编辑物品' : '添加物品' }}</text>
+          <text class="popup-close" @tap="showForm = false">✕</text>
+        </view>
+        <view class="form-group">
+          <text class="form-label">物品名称</text>
+          <input v-model="formData.name" class="form-input" placeholder="如：喜糖盒" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">分类</text>
+          <input v-model="formData.category" class="form-input" placeholder="如：喜糖" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">数量</text>
+          <input v-model="formData.quantity" class="form-input" type="number" placeholder="1" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">单价 (元)</text>
+          <input v-model="formData.price" class="form-input" type="digit" placeholder="0.00" />
+        </view>
+        <view class="form-group">
+          <text class="form-label">负责人</text>
+          <view class="form-picker">
+            <view
+              v-for="opt in assigneeOptions"
+              :key="opt.value"
+              class="form-picker-item"
+              :class="{ active: formData.assignee === opt.value }"
+              @tap="formData.assignee = opt.value"
+            >
+              <text>{{ opt.label }}</text>
+            </view>
+          </view>
+        </view>
+        <view class="form-group">
+          <text class="form-label">备注</text>
+          <input v-model="formData.remark" class="form-input" placeholder="选填" />
+        </view>
+        <view class="form-actions">
+          <button v-if="editingItem" class="form-btn form-btn-delete" @tap="handleDelete">删除</button>
+          <button class="form-btn form-btn-cancel" @tap="showForm = false">取消</button>
+          <button class="form-btn form-btn-submit" @tap="handleSubmit">保存</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { getItemList, getItemCategories } from '../../api/item'
+import { getItemList, getItemCategories, createItem, updateItem, deleteItem } from '../../api/item'
 import type { Item } from '../../api/item'
 
 const activeFilter = ref('all')
@@ -151,8 +200,96 @@ function assigneeLabel(assignee: number): string {
 }
 
 function handleAdd() {
-  uni.showToast({ title: '添加物品功能开发中', icon: 'none' })
+  editingItem.value = null
+  formData.value = { name: '', category: '', quantity: '1', price: '', assignee: 0, remark: '' }
+  showForm.value = true
 }
+
+function handleEdit(item: Item) {
+  editingItem.value = item
+  formData.value = {
+    name: item.name,
+    category: item.category,
+    quantity: String(item.quantity ?? 1),
+    price: item.price ?? '',
+    assignee: item.assignee ?? 0,
+    remark: item.remark ?? '',
+  }
+  showForm.value = true
+}
+
+async function handleDelete() {
+  if (!editingItem.value) return
+  uni.showModal({
+    title: '确认删除',
+    content: `确定要删除"${editingItem.value.name}"吗？`,
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await deleteItem(editingItem.value!.id)
+          showForm.value = false
+          uni.showToast({ title: '已删除', icon: 'success' })
+          await Promise.all([fetchItems(), fetchCategories()])
+        } catch {
+          // error handled by request wrapper
+        }
+      }
+    },
+  })
+}
+
+async function handleSubmit() {
+  const d = formData.value
+  if (!d.name.trim()) {
+    uni.showToast({ title: '请输入物品名称', icon: 'none' })
+    return
+  }
+  try {
+    if (editingItem.value) {
+      await updateItem({
+        id: editingItem.value.id,
+        category: d.category || undefined,
+        name: d.name,
+        quantity: d.quantity ? Number(d.quantity) : undefined,
+        price: d.price || undefined,
+        assignee: d.assignee,
+        remark: d.remark || undefined,
+      })
+    } else {
+      await createItem({
+        category: d.category || undefined,
+        name: d.name,
+        quantity: d.quantity ? Number(d.quantity) : undefined,
+        price: d.price || undefined,
+        assignee: d.assignee,
+        remark: d.remark || undefined,
+      })
+    }
+    showForm.value = false
+    uni.showToast({ title: '保存成功', icon: 'success' })
+    await Promise.all([fetchItems(), fetchCategories()])
+  } catch {
+    // error handled by request wrapper
+  }
+}
+
+// ---------- Form state ----------
+const showForm = ref(false)
+const editingItem = ref<Item | null>(null)
+const formData = ref({
+  name: '',
+  category: '',
+  quantity: '1',
+  price: '',
+  assignee: 0,
+  remark: '',
+})
+
+const assigneeOptions = [
+  { value: 0, label: '共同' },
+  { value: 1, label: '新郎' },
+  { value: 2, label: '新娘' },
+]
 
 async function fetchCategories() {
   try {
@@ -404,5 +541,121 @@ onMounted(async () => {
   font-size: 48rpx;
   color: #ffffff;
   font-weight: 300;
+}
+
+/* ---------- Popup Form ---------- */
+.popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.popup-content {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 40rpx 40rpx calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.popup-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $wedding-text;
+}
+
+.popup-close {
+  font-size: 36rpx;
+  color: #999;
+  padding: 8rpx;
+}
+
+.form-group {
+  margin-bottom: 24rpx;
+}
+
+.form-label {
+  font-size: 26rpx;
+  color: $wedding-text-light;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  background: #F8F8F8;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+
+.form-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  text-align: center;
+  border: none;
+}
+
+.form-btn::after { border: none; }
+
+.form-btn-cancel {
+  background: #F0F0F0;
+  color: #666;
+}
+
+.form-btn-submit {
+  background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+  color: #ffffff;
+}
+
+.form-btn-delete {
+  background: #FFF1F0;
+  color: #FF4D4F;
+}
+
+.form-picker {
+  display: flex;
+  gap: 16rpx;
+}
+
+.form-picker-item {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  background: #F8F8F8;
+  color: #666;
+}
+
+.form-picker-item.active {
+  background: $wedding-primary;
+  color: #ffffff;
 }
 </style>
