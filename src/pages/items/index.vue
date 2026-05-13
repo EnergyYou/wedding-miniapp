@@ -110,7 +110,7 @@ const items = reactive<Item[]>([
   { id: 7, category: '伴手礼', name: '伴手礼盒(男)', quantity: 20, price: '35', status: 2, assignee: 1 },
   { id: 8, category: '伴手礼', name: '定制感谢卡', quantity: 40, price: '8', status: 0, assignee: 0 },
   { id: 9, category: '伴手礼', name: '精美包装袋', quantity: 40, price: '5', status: 0, assignee: 0 },
-  { id: 10, category: '喜糖', name: '德芙心语巧克力', quantity: 200, price: '2.5', status: 2, attach: 0 },
+  { id: 10, category: '喜糖', name: '德芙心语巧克力', quantity: 200, price: '2.5', status: 2, assignee: 0 },
   { id: 11, category: '喜糖', name: '费列罗喜糖装', quantity: 100, price: '3.8', status: 1, assignee: 1 },
   { id: 12, category: '喜糖', name: '喜糖盒', quantity: 200, price: '1.5', status: 0, assignee: 0 },
   { id: 13, category: '新人用品', name: '新娘晨袍', quantity: 1, price: '258', status: 2, assignee: 2 },

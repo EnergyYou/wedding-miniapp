@@ -27,7 +27,7 @@
           <view class="card-top">
             <view class="card-badges">
               <text class="cat-badge" :style="{ background: getCategoryBg(speech.category), color: getCategoryColor(speech.category) }">{{ getCategoryLabel(speech.category) }}</text>
-              <text v-if="speech.isTemplate" class="template-badge">系统模板</text>
+              <text v-if="speech.isTemplate === 1" class="template-badge">系统模板</text>
               <text v-else class="custom-badge">自定义</text>
             </view>
           </view>
@@ -40,7 +40,7 @@
             <view class="action-btn edit-btn" @tap="handleEdit(speech)">
               <text class="action-text">编辑</text>
             </view>
-            <view v-if="!speech.isTemplate" class="action-btn delete-btn" @tap="handleDelete(speech)">
+            <view v-if="speech.isTemplate !== 1" class="action-btn delete-btn" @tap="handleDelete(speech)">
               <text class="action-text">删除</text>
             </view>
           </view>
@@ -57,93 +57,90 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-
-interface Speech {
-  id: number
-  category: string
-  title: string
-  content: string
-  isTemplate: boolean
-}
+import { ref, computed, onMounted } from 'vue'
+import {
+  getSpeechList,
+  getSpeechCategories,
+  deleteSpeech,
+  type Speech,
+} from '../../api/speech'
 
 const activeCategory = ref('all')
 
-const categories = [
+const categories = ref<{ key: string; label: string }[]>([
   { key: 'all', label: '全部' },
-  { key: 'invitation', label: '结婚邀请' },
-  { key: 'speech', label: '婚礼致辞' },
-  { key: 'parents', label: '父母发言' },
-  { key: 'toast', label: '宴席敬酒' },
-  { key: 'thanks', label: '感谢词' },
-]
-
-const speeches = ref<Speech[]>([
-  {
-    id: 1, category: 'invitation', title: '正式版邀请函', isTemplate: true,
-    content: '谨定于公历{{婚期}}，为新郎{{新郎名字}}与新娘{{新娘名字}}举行婚礼，敬备喜宴，恭请光临。'
-  },
-  {
-    id: 2, category: 'invitation', title: '朋友圈版', isTemplate: true,
-    content: '我们要结婚啦！在这个特别的日子里，我们将携手步入婚姻的殿堂。诚挚邀请您来见证我们的幸福时刻！'
-  },
-  {
-    id: 3, category: 'speech', title: '新郎致辞', isTemplate: true,
-    content: '亲爱的各位亲朋好友：大家好！感谢大家在百忙之中抽出时间来参加我们的婚礼。今天是我人生中最重要的日子之一...'
-  },
-  {
-    id: 4, category: 'parents', title: '女方父亲致辞', isTemplate: true,
-    content: '各位来宾、各位亲友：今天是我的女儿出嫁的大喜日子。首先感谢大家在百忙之中抽出时间来参加婚礼...'
-  },
-  {
-    id: 5, category: 'toast', title: '敬酒通用话术', isTemplate: true,
-    content: '感谢您来参加我们的婚礼，祝您身体健康，万事如意！'
-  },
-  {
-    id: 6, category: 'thanks', title: '感谢词', isTemplate: true,
-    content: '感谢各位亲朋好友百忙之中参加我们的婚礼，感谢双方父母的养育之恩...'
-  },
 ])
+
+const speeches = ref<Speech[]>([])
 
 const filteredSpeeches = computed(() => {
   if (activeCategory.value === 'all') return speeches.value
   return speeches.value.filter(s => s.category === activeCategory.value)
 })
 
-function getCategoryLabel(cat: string): string {
-  const map: Record<string, string> = {
-    invitation: '结婚邀请', speech: '婚礼致辞', parents: '父母发言',
-    toast: '宴席敬酒', thanks: '感谢词',
+async function loadCategories() {
+  try {
+    const list = await getSpeechCategories()
+    categories.value = [
+      { key: 'all', label: '全部' },
+      ...list.map(c => ({ key: c, label: c })),
+    ]
+  } catch (e) {
+    console.error('加载分类失败', e)
   }
-  return map[cat] || cat
 }
 
-function getCategoryColor(cat: string): string {
-  const map: Record<string, string> = {
-    invitation: '#E8A0BF', speech: '#D4A574', parents: '#B5838D',
-    toast: '#4CAF50', thanks: '#1976D2',
+async function loadSpeeches() {
+  try {
+    speeches.value = await getSpeechList()
+  } catch (e) {
+    console.error('加载话术列表失败', e)
+    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
   }
-  return map[cat] || '#999'
+}
+
+onMounted(() => {
+  loadCategories()
+  loadSpeeches()
+})
+
+function getCategoryLabel(cat: string): string {
+  return cat
+}
+
+const COLOR_PALETTE = ['#E8A0BF', '#D4A574', '#B5838D', '#4CAF50', '#1976D2', '#9C27B0', '#FF5722']
+const BG_PALETTE = ['#FFF0F5', '#FFF8E1', '#F3E5F5', '#E8F5E9', '#E3F2FD', '#F3E5F5', '#FBE9E7']
+
+function getCategoryColor(cat: string): string {
+  const known: Record<string, string> = {
+    '结婚邀请': '#E8A0BF', '婚礼致辞': '#D4A574', '父母发言': '#B5838D',
+    '宴席敬酒': '#4CAF50', '感谢词': '#1976D2',
+  }
+  if (known[cat]) return known[cat]
+  const idx = categories.value.findIndex(c => c.key === cat)
+  return idx >= 0 ? COLOR_PALETTE[(idx - 1) % COLOR_PALETTE.length] : '#999'
 }
 
 function getCategoryBg(cat: string): string {
-  const map: Record<string, string> = {
-    invitation: '#FFF0F5', speech: '#FFF8E1', parents: '#F3E5F5',
-    toast: '#E8F5E9', thanks: '#E3F2FD',
+  const known: Record<string, string> = {
+    '结婚邀请': '#FFF0F5', '婚礼致辞': '#FFF8E1', '父母发言': '#F3E5F5',
+    '宴席敬酒': '#E8F5E9', '感谢词': '#E3F2FD',
   }
-  return map[cat] || '#F5F5F5'
+  if (known[cat]) return known[cat]
+  const idx = categories.value.findIndex(c => c.key === cat)
+  return idx >= 0 ? BG_PALETTE[(idx - 1) % BG_PALETTE.length] : '#F5F5F5'
 }
 
 function handleCopy(speech: Speech) {
   uni.setClipboardData({
-    data: speech.content,
+    data: speech.content || '',
     success: () => {
       uni.showToast({ title: '已复制到剪贴板', icon: 'success' })
     },
   })
 }
 
-function handleEdit(speech: Speech) {
+function handleEdit(_speech: Speech) {
   uni.showToast({ title: '编辑功能开发中', icon: 'none' })
 }
 
@@ -151,9 +148,16 @@ function handleDelete(speech: Speech) {
   uni.showModal({
     title: '确认删除',
     content: `确定要删除"${speech.title}"吗？`,
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        speeches.value = speeches.value.filter(s => s.id !== speech.id)
+        try {
+          await deleteSpeech(speech.id)
+          await loadSpeeches()
+          uni.showToast({ title: '已删除', icon: 'success' })
+        } catch (e) {
+          console.error('删除失败', e)
+          uni.showToast({ title: '删除失败，请重试', icon: 'none' })
+        }
       }
     },
   })

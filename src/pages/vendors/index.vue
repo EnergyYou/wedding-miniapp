@@ -49,18 +49,15 @@
             </view>
           </view>
           <view class="rating-row">
-            <text class="stars">{{ renderStars(v.score) }}</text>
-            <text class="price">{{ v.priceQuote }}</text>
+            <text class="stars">{{ renderStars(v.score ?? 0) }}</text>
+            <text class="price">{{ v.priceQuote || '暂无报价' }}</text>
           </view>
         </view>
 
         <view class="card-body">
           <view class="info-row">
             <text class="info-label">联系人</text>
-            <text class="info-value">{{ v.contact }}</text>
-          </view>
-          <view class="tags-row">
-            <text v-for="tag in v.tags" :key="tag" class="tag">{{ tag }}</text>
+            <text class="info-value">{{ v.contact || '未填写' }}</text>
           </view>
           <text v-if="v.remark" class="remark">{{ v.remark }}</text>
         </view>
@@ -75,57 +72,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-
-interface Vendor {
-  id: number
-  category: string
-  name: string
-  contact: string
-  priceQuote: string
-  score: number
-  status: number // 0-备选 1-已签约 2-已排除
-  tags: string[]
-  remark: string
-}
+import { ref, computed, onMounted } from 'vue'
+import { getVendorList, getVendorCategories } from '../../api/vendor'
+import type { Vendor } from '../../api/vendor'
 
 const activeCategory = ref('全部')
-
-const vendors = ref<Vendor[]>([
-  {
-    id: 1, category: '婚宴酒店', name: '香格里拉大酒店', contact: '王经理 138xxxx',
-    priceQuote: '¥48,888/桌', score: 5, status: 1,
-    tags: ['五星级', '地铁沿线', '独立宴会厅'],
-    remark: '场地大气，服务专业，已确认档期'
-  },
-  {
-    id: 2, category: '婚宴酒店', name: '半岛酒店', contact: '李经理 139xxxx',
-    priceQuote: '¥58,888/桌', score: 4, status: 0,
-    tags: ['海景厅', '高端定位', '品牌效应'],
-    remark: '环境优雅但价格偏高，待对比'
-  },
-  {
-    id: 3, category: '婚宴酒店', name: '金茂君悦', contact: '张经理 136xxxx',
-    priceQuote: '¥38,888/桌', score: 3, status: 2,
-    tags: ['性价比', '市区位置'],
-    remark: '档期不合适，已排除'
-  },
-  {
-    id: 4, category: '婚纱摄影', name: '薇拉摄影工作室', contact: '陈总监 137xxxx',
-    priceQuote: '¥12,800/套', score: 5, status: 1,
-    tags: ['纪实风格', '精修60张', '外景拍摄'],
-    remark: '风格很喜欢，已签约'
-  },
-])
+const vendors = ref<Vendor[]>([])
+const categories = ref<string[]>([])
 
 const allCategories = computed(() => {
-  const cats = ['全部', ...new Set(vendors.value.map(v => v.category))]
-  return cats
+  return ['全部', ...categories.value]
 })
 
 const displayCategories = computed(() => {
   if (activeCategory.value === '全部') {
-    return [...new Set(vendors.value.map(v => v.category))]
+    return categories.value
   }
   return [activeCategory.value]
 })
@@ -145,6 +106,30 @@ function statusLabel(status: number): string {
 function handleAdd() {
   uni.showToast({ title: '添加供应商功能开发中', icon: 'none' })
 }
+
+async function fetchCategories() {
+  try {
+    const result = await getVendorCategories()
+    categories.value = result ?? []
+  } catch {
+    uni.showToast({ title: '获取分类失败', icon: 'none' })
+    categories.value = []
+  }
+}
+
+async function fetchVendors() {
+  try {
+    const result = await getVendorList()
+    vendors.value = result ?? []
+  } catch {
+    uni.showToast({ title: '获取供应商列表失败', icon: 'none' })
+    vendors.value = []
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([fetchCategories(), fetchVendors()])
+})
 </script>
 
 <style lang="scss" scoped>
