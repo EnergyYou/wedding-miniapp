@@ -91,7 +91,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { getTimelineList } from '@/api/timeline'
+import { getTaskList, getTaskStats, updateTaskStatus } from '@/api/task'
 
 // ---------- Types ----------
 
@@ -119,138 +121,156 @@ interface Stage {
   tasks: Task[]
 }
 
+// ---------- Helpers ----------
+
+const ASSIGNEE_MAP: Record<number, Assignee> = {
+  0: 'both',
+  1: 'groom',
+  2: 'bride',
+}
+
+const ASSIGNEE_LABEL_MAP: Record<Assignee, string> = {
+  both: '共同',
+  groom: '新郎',
+  bride: '新娘',
+}
+
+const TASK_STATUS_MAP: Record<number, TaskStatus> = {
+  0: 'pending',
+  1: 'in-progress',
+  2: 'done',
+}
+
+const TASK_STATUS_TEXT_MAP: Record<TaskStatus, string> = {
+  pending: '待办',
+  'in-progress': '进行中',
+  done: '\u2713 已完成',
+}
+
+function mapApiStatus(raw: number): TaskStatus {
+  return TASK_STATUS_MAP[raw] ?? 'pending'
+}
+
+function mapApiAssignee(raw: number): Assignee {
+  return ASSIGNEE_MAP[raw] ?? 'both'
+}
+
+function formatDeadline(raw: string | null): string {
+  if (!raw) {
+    return ''
+  }
+  const date = new Date(raw)
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  return `\uD83D\uDCC5 截止 ${month}月${day}日`
+}
+
+function computeStageStatus(tasks: Task[]): StageStatus {
+  if (tasks.length === 0) {
+    return 'upcoming'
+  }
+  const allDone = tasks.every((t) => t.status === 'done')
+  if (allDone) {
+    return 'completed'
+  }
+  return 'active'
+}
+
+function buildStageSummary(status: StageStatus, tasks: Task[]): string {
+  if (status === 'completed') {
+    return `${tasks.length}项任务已完成`
+  }
+  if (status === 'upcoming') {
+    return tasks.length > 0 ? `${tasks.length}项任务` : '暂无任务'
+  }
+  const doneCount = tasks.filter((t) => t.status === 'done').length
+  return `进行中 \u00B7 ${doneCount}/${tasks.length}已完成`
+}
+
+function buildStageTag(status: StageStatus): string {
+  if (status === 'completed') {
+    return '已完成'
+  }
+  if (status === 'active') {
+    return '当前阶段'
+  }
+  return '未开始'
+}
+
 // ---------- Reactive State ----------
 
-const expandedStageId = ref(3) // active stage expanded by default
-
-const stages = ref<Stage[]>([
-  {
-    id: 1,
-    name: '12个月前',
-    status: 'completed',
-    summaryText: '6项任务已完成',
-    tagText: '已完成',
-    tasks: [],
-  },
-  {
-    id: 2,
-    name: '6个月前',
-    status: 'completed',
-    summaryText: '4项任务已完成',
-    tagText: '已完成',
-    tasks: [],
-  },
-  {
-    id: 3,
-    name: '3个月前',
-    status: 'active',
-    summaryText: '进行中 \u00B7 2/6已完成',
-    tagText: '当前阶段',
-    tasks: [
-      {
-        id: 31,
-        name: '确定伴郎伴娘',
-        status: 'done',
-        assignee: 'both',
-        assigneeLabel: '共同',
-        statusText: '\u2713 已完成',
-        deadline: '',
-        priority: false,
-      },
-      {
-        id: 32,
-        name: '试穿婚纱',
-        status: 'done',
-        assignee: 'bride',
-        assigneeLabel: '新娘',
-        statusText: '\u2713 已完成',
-        deadline: '',
-        priority: false,
-      },
-      {
-        id: 33,
-        name: '预定化妆师',
-        status: 'in-progress',
-        assignee: 'bride',
-        assigneeLabel: '新娘',
-        statusText: '进行中',
-        deadline: '\uD83D\uDCC5 截止 8月15日',
-        priority: true,
-      },
-      {
-        id: 34,
-        name: '发送请柬',
-        status: 'pending',
-        assignee: 'both',
-        assigneeLabel: '共同',
-        statusText: '待办',
-        deadline: '\uD83D\uDCC5 截止 8月20日',
-        priority: false,
-      },
-      {
-        id: 35,
-        name: '选购喜糖',
-        status: 'pending',
-        assignee: 'groom',
-        assigneeLabel: '新郎',
-        statusText: '待办',
-        deadline: '\uD83D\uDCC5 截止 8月25日',
-        priority: false,
-      },
-      {
-        id: 36,
-        name: '确认婚礼流程',
-        status: 'pending',
-        assignee: 'both',
-        assigneeLabel: '共同',
-        statusText: '待办',
-        deadline: '\uD83D\uDCC5 截止 8月30日',
-        priority: false,
-      },
-    ],
-  },
-  {
-    id: 4,
-    name: '1个月前',
-    status: 'upcoming',
-    summaryText: '5项任务',
-    tagText: '未开始',
-    tasks: [],
-  },
-  {
-    id: 5,
-    name: '1周前',
-    status: 'upcoming',
-    summaryText: '3项任务',
-    tagText: '未开始',
-    tasks: [],
-  },
-  {
-    id: 6,
-    name: '当天',
-    status: 'upcoming',
-    summaryText: '最重要的日子',
-    tagText: '未开始',
-    tasks: [],
-  },
-])
-
-// ---------- Computed ----------
-
-const completedCount = computed(() => {
-  let count = 12 // mock: previous stages
-  const activeStage = stages.value.find((s) => s.status === 'active')
-  if (activeStage) {
-    count += activeStage.tasks.filter((t) => t.status === 'done').length
-  }
-  return count
-})
-
-const totalCount = 24 // mock total
+const loading = ref(true)
+const expandedStageId = ref(-1)
+const stages = ref<Stage[]>([])
+const completedCount = ref(0)
+const totalCount = ref(0)
 
 const progressPercent = computed(() => {
-  return Math.round((completedCount.value / totalCount) * 100)
+  if (totalCount.value === 0) {
+    return 0
+  }
+  return Math.round((completedCount.value / totalCount.value) * 100)
 })
+
+// ---------- Data Loading ----------
+
+async function loadData(): Promise<void> {
+  loading.value = true
+  try {
+    const [timelines, stats] = await Promise.all([
+      getTimelineList(),
+      getTaskStats(),
+    ])
+
+    completedCount.value = stats.completed
+    totalCount.value = stats.total
+
+    if (timelines.length === 0) {
+      stages.value = []
+      return
+    }
+
+    const allTasks = await getTaskList()
+
+    const builtStages: Stage[] = timelines.map((tl) => {
+      const stageTasks: Task[] = allTasks
+        .filter((t) => t.timelineId === tl.id)
+        .map((t) => ({
+          id: t.id,
+          name: t.title,
+          status: mapApiStatus(t.status),
+          assignee: mapApiAssignee(t.assignee),
+          assigneeLabel: ASSIGNEE_LABEL_MAP[mapApiAssignee(t.assignee)],
+          statusText: TASK_STATUS_TEXT_MAP[mapApiStatus(t.status)],
+          deadline: formatDeadline(t.deadline),
+          priority: t.priority === 1,
+        }))
+
+      const stageStatus = computeStageStatus(stageTasks)
+
+      return {
+        id: tl.id,
+        name: tl.title,
+        status: stageStatus,
+        summaryText: buildStageSummary(stageStatus, stageTasks),
+        tagText: buildStageTag(stageStatus),
+        tasks: stageTasks,
+      }
+    })
+
+    stages.value = builtStages
+
+    const activeStage = builtStages.find((s) => s.status === 'active')
+    if (activeStage) {
+      expandedStageId.value = activeStage.id
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '加载失败'
+    uni.showToast({ title: message, icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
 
 // ---------- Methods ----------
 
@@ -261,33 +281,27 @@ function toggleStage(stage: Stage): void {
   expandedStageId.value = expandedStageId.value === stage.id ? -1 : stage.id
 }
 
-function toggleTask(stage: Stage, task: Task): void {
-  const stageRef = stages.value.find((s) => s.id === stage.id)
-  if (!stageRef) {
-    return
-  }
-  const taskRef = stageRef.tasks.find((t) => t.id === task.id)
-  if (!taskRef) {
-    return
-  }
+async function toggleTask(stage: Stage, task: Task): Promise<void> {
+  const newApiStatus = task.status === 'done' ? 0 : 2
 
-  if (taskRef.status === 'done') {
-    taskRef.status = 'pending'
-    taskRef.statusText = '待办'
-  } else {
-    taskRef.status = 'done'
-    taskRef.statusText = '\u2713 已完成'
+  try {
+    await updateTaskStatus(task.id, newApiStatus)
+    await loadData()
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '操作失败'
+    uni.showToast({ title: message, icon: 'none' })
   }
-
-  // Update stage summary
-  const doneCount = stageRef.tasks.filter((t) => t.status === 'done').length
-  const totalTasks = stageRef.tasks.length
-  stageRef.summaryText = `\u8FDB\u884C\u4E2D \u00B7 ${doneCount}/${totalTasks}\u5DF2\u5B8C\u6210`
 }
 
 function onFabTap(): void {
   uni.showToast({ title: '添加任务（开发中）', icon: 'none' })
 }
+
+// ---------- Lifecycle ----------
+
+onMounted(() => {
+  loadData()
+})
 </script>
 
 <style lang="scss" scoped>
