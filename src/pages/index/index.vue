@@ -161,10 +161,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useUserStore } from '@/store/user'
 import { useCoupleStore } from '@/store/couple'
 import { silentLogin } from '@/utils/auth'
+import { getTimelineList, type Timeline } from '@/api/timeline'
+import { getTaskList, getTaskStats, updateTaskStatus, type Task as ApiTask, type TaskStats } from '@/api/task'
 
 // ── Types ──────────────────────────────────────────────────
 interface Task {
@@ -196,6 +198,28 @@ onMounted(() => {
   const sysInfo = uni.getSystemInfoSync()
   statusBarHeight.value = sysInfo.statusBarHeight ?? 44
 })
+
+// ── Load dashboard data when bound ─────────────────────────
+watch(isCoupleBound, (bound) => {
+  if (bound) {
+    loadDashboardData()
+  }
+}, { immediate: true })
+
+async function loadDashboardData() {
+  try {
+    const [timelines, stats, tasks] = await Promise.all([
+      getTimelineList(),
+      getTaskStats(),
+      getTaskList(),
+    ])
+    buildTimelineStages(timelines)
+    applyStats(stats)
+    buildTaskList(tasks)
+  } catch {
+    // API not available yet, keep fallback data
+  }
+}
 
 // ── Login ──────────────────────────────────────────────────
 async function handleLogin() {
@@ -260,9 +284,14 @@ const formattedWeddingDate = computed(() => {
 const completedCount = ref(12)
 const totalTasks = ref(24)
 const progressPercent = computed(() =>
-  Math.round((completedCount.value / totalTasks.value) * 100)
+  totalTasks.value > 0 ? Math.round((completedCount.value / totalTasks.value) * 100) : 0
 )
 const currentStage = ref('婚礼前3个月')
+
+function applyStats(stats: TaskStats) {
+  completedCount.value = stats.completed
+  totalTasks.value = stats.total
+}
 
 // ── Timeline stages ────────────────────────────────────────
 const timelineStages = ref<ReadonlyArray<TimelineStage>>([
@@ -274,6 +303,26 @@ const timelineStages = ref<ReadonlyArray<TimelineStage>>([
   { label: '当天', completed: false, active: false },
 ])
 
+function buildTimelineStages(timelines: Timeline[]) {
+  if (!timelines || timelines.length === 0) return
+  let foundActive = false
+  timelineStages.value = timelines.map((tl) => {
+    // Simple heuristic: first stage with incomplete tasks is "active"
+    const isActive = !foundActive
+    if (isActive) foundActive = true
+    return {
+      label: tl.title,
+      completed: false,
+      active: isActive,
+    }
+  })
+  // Update current stage label
+  const active = timelineStages.value.find((s) => s.active)
+  if (active) {
+    currentStage.value = active.label
+  }
+}
+
 // ── Task list ──────────────────────────────────────────────
 const currentTasks = ref<Task[]>([
   { id: 1, name: '预定婚宴酒店', assignee: 'both', deadline: '06月18日', priority: true, completed: true },
@@ -283,17 +332,47 @@ const currentTasks = ref<Task[]>([
   { id: 5, name: '选购婚戒', assignee: 'both', deadline: '08月01日', priority: true, completed: false },
 ])
 
-function toggleTask(task: Task) {
-  const index = currentTasks.value.findIndex((t) => t.id === task.id)
-  if (index === -1) {
-    return
+const assigneeMap: Record<number, 'groom' | 'bride' | 'both'> = { 0: 'both', 1: 'groom', 2: 'bride' }
+
+function formatDeadline(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return `${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+function buildTaskList(tasks: ApiTask[]) {
+  if (!tasks || tasks.length === 0) return
+  // Show only pending/in-progress tasks (limit 5)
+  const pending = tasks.filter((t) => t.status !== 2).slice(0, 5)
+  if (pending.length > 0) {
+    currentTasks.value = pending.map((t) => ({
+      id: t.id,
+      name: t.title,
+      assignee: assigneeMap[t.assignee] ?? 'both',
+      deadline: formatDeadline(t.deadline),
+      priority: t.priority === 1,
+      completed: t.status === 2,
+    }))
   }
-  const updated = { ...currentTasks.value[index], completed: !currentTasks.value[index].completed }
-  currentTasks.value = [
-    ...currentTasks.value.slice(0, index),
-    updated,
-    ...currentTasks.value.slice(index + 1),
-  ]
+}
+
+async function toggleTask(task: Task) {
+  const newStatus = task.completed ? 0 : 2
+  try {
+    await updateTaskStatus(task.id, newStatus)
+    const index = currentTasks.value.findIndex((t) => t.id === task.id)
+    if (index === -1) return
+    currentTasks.value = [
+      ...currentTasks.value.slice(0, index),
+      { ...currentTasks.value[index], completed: !currentTasks.value[index].completed },
+      ...currentTasks.value.slice(index + 1),
+    ]
+    // Refresh stats
+    const stats = await getTaskStats()
+    applyStats(stats)
+  } catch {
+    // Error already shown by request interceptor
+  }
 }
 
 function assigneeLabel(assignee: Task['assignee']): string {
