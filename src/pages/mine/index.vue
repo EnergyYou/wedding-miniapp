@@ -117,7 +117,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/store/user'
 import { useCoupleStore } from '@/store/couple'
 import { logout } from '@/api/user'
-import { updateWeddingDate } from '@/api/couple'
+import { getCoupleInfo, updateWeddingDate } from '@/api/couple'
 import { silentLogin } from '@/utils/auth'
 
 const userStore = useUserStore()
@@ -172,6 +172,19 @@ function formatDate(dateStr: string): string {
 onShow(async () => {
   if (!userStore.token) {
     await silentLogin()
+  }
+  // 每次显示时刷新情侣信息
+  if (userStore.token && !coupleStore.isBound) {
+    try {
+      const coupleInfo = await getCoupleInfo()
+      coupleStore.setCoupleInfo({
+        coupleId: String(coupleInfo.coupleId),
+        weddingDate: coupleInfo.weddingDate || '',
+        partnerName: coupleInfo.partnerName || '',
+      })
+    } catch {
+      // 未绑定，忽略
+    }
   }
 })
 

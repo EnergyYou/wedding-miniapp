@@ -37,7 +37,7 @@
             <view class="action-btn copy-btn" @tap="handleCopy(speech)">
               <text class="action-text">复制</text>
             </view>
-            <view class="action-btn edit-btn" @tap="handleEdit(speech)">
+            <view v-if="speech.isTemplate !== 1" class="action-btn edit-btn" @tap="handleEdit(speech)">
               <text class="action-text">编辑</text>
             </view>
             <view v-if="speech.isTemplate !== 1" class="action-btn delete-btn" @tap="handleDelete(speech)">

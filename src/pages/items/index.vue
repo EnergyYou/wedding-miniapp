@@ -45,11 +45,11 @@
           <view class="mini-progress">
             <view class="mini-progress-fill" :style="{ width: getCatPercent(cat.name) + '%' }"></view>
           </view>
-          <text class="collapse-arrow" :class="{ expanded: !collapsedCats.has(cat.name) }">&#9662;</text>
+          <text class="collapse-arrow" :class="{ expanded: !collapsedCats[cat.name] }">&#9662;</text>
         </view>
       </view>
 
-      <view v-if="!collapsedCats.has(cat.name)" class="category-items">
+      <view v-show="!collapsedCats[cat.name]" class="category-items">
         <view v-for="item in getCatItems(cat.name)" :key="item.id" class="item-row" @tap="handleEdit(item)">
           <text class="status-icon" :class="statusClass(item.purchaseStatus)">{{ statusIcon(item.purchaseStatus) }}</text>
           <view class="item-info">
@@ -120,12 +120,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getItemList, getItemCategories, createItem, updateItem, deleteItem } from '../../api/item'
 import type { Item } from '../../api/item'
 
 const activeFilter = ref('all')
-const collapsedCats = reactive(new Set<string>())
+const collapsedCats = ref<Record<string, boolean>>({})
 const loading = ref(false)
 
 const filterTabs = [
@@ -164,10 +164,9 @@ const filteredItems = computed(() => {
 })
 
 function toggleCategory(name: string) {
-  if (collapsedCats.has(name)) {
-    collapsedCats.delete(name)
-  } else {
-    collapsedCats.add(name)
+  collapsedCats.value = {
+    ...collapsedCats.value,
+    [name]: !collapsedCats.value[name]
   }
 }
 
@@ -392,10 +391,6 @@ onMounted(async () => {
   padding: 28rpx 28rpx;
 }
 
-.category-header:active {
-  background: #FAFAFA;
-}
-
 .category-left {
   display: flex;
   align-items: center;
@@ -443,7 +438,6 @@ onMounted(async () => {
 .collapse-arrow {
   font-size: 24rpx;
   color: #ccc;
-  transition: transform 0.3s;
 }
 
 .collapse-arrow.expanded {

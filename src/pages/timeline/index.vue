@@ -4,7 +4,7 @@
     <!-- Progress Summary Bar -->
     <view class="progress-summary">
       <view class="progress-info">
-        <text class="progress-label">当前阶段: 婚礼前3个月</text>
+        <text class="progress-label">当前阶段: {{ currentStageName }}</text>
         <text class="progress-numbers">
           已完成 <text class="progress-highlight">{{ completedCount }}</text> / {{ totalCount }} 项任务
         </text>
@@ -44,8 +44,8 @@
             <text :class="['stage-tag', stage.status]">{{ stage.tagText }}</text>
           </view>
 
-          <!-- Task list (only for active stage) -->
-          <view v-if="stage.status === 'active' && expandedStageId === stage.id" class="task-list">
+          <!-- Task list (expanded stage) -->
+          <view v-if="expandedStageId === stage.id && stage.tasks.length > 0" class="task-list">
             <view
               v-for="task in stage.tasks"
               :key="task.id"
@@ -109,7 +109,10 @@
         <!-- Timeline Stage -->
         <view class="form-group">
           <text class="form-label">所属阶段 *</text>
-          <scroll-view scroll-x class="stage-chips">
+          <view v-if="stages.length === 0" class="stage-empty">
+            <text class="stage-empty-text">暂无阶段数据，请先在备婚时间线页面添加阶段</text>
+          </view>
+          <scroll-view v-else scroll-x class="stage-chips">
             <view
               v-for="stage in stages"
               :key="stage.id"
@@ -199,6 +202,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { getTimelineList } from '@/api/timeline'
 import { getTaskList, getTaskStats, updateTaskStatus, createTask } from '@/api/task'
 
@@ -340,6 +344,13 @@ const progressPercent = computed(() => {
   return Math.round((completedCount.value / totalCount.value) * 100)
 })
 
+const currentStageName = computed(() => {
+  const active = stages.value.find((s) => s.status === 'active')
+  if (active) return active.name
+  const lastCompleted = [...stages.value].reverse().find((s) => s.status === 'completed')
+  return lastCompleted ? lastCompleted.name : '未开始'
+})
+
 // ---------- Data Loading ----------
 
 async function loadData(): Promise<void> {
@@ -403,13 +414,17 @@ async function loadData(): Promise<void> {
 // ---------- Methods ----------
 
 function toggleStage(stage: Stage): void {
-  if (stage.status !== 'active') {
-    return
-  }
   expandedStageId.value = expandedStageId.value === stage.id ? -1 : stage.id
 }
 
 async function toggleTask(stage: Stage, task: Task): Promise<void> {
+  const action = task.status === 'done' ? '取消完成' : '标记为已完成'
+  const { confirm } = await uni.showModal({
+    title: '确认操作',
+    content: `确定要${action}"${task.name}"吗？`,
+  })
+  if (!confirm) return
+
   const newApiStatus = task.status === 'done' ? 0 : 2
 
   try {
@@ -463,8 +478,24 @@ async function handleSubmit(): Promise<void> {
 
 // ---------- Lifecycle ----------
 
+let pendingStageId: number | null = null
+
+onLoad((query) => {
+  if (query?.stageId) {
+    pendingStageId = Number(query.stageId)
+  }
+})
+
 onMounted(() => {
-  loadData()
+  loadData().then(() => {
+    if (pendingStageId !== null) {
+      const stage = stages.value.find((s) => s.id === pendingStageId)
+      if (stage) {
+        expandedStageId.value = stage.id
+      }
+      pendingStageId = null
+    }
+  })
 })
 </script>
 
@@ -997,6 +1028,20 @@ onMounted(() => {
 .stage-chips {
   white-space: nowrap;
   height: 80rpx;
+}
+
+.stage-empty {
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  background: #F8F8F8;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+}
+
+.stage-empty-text {
+  font-size: 24rpx;
+  color: #999;
 }
 
 .stage-chip {

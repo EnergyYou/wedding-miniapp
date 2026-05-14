@@ -138,11 +138,12 @@ function handleToolTap(tool: string) {
   padding: 32rpx;
   display: flex;
   flex-wrap: wrap;
-  gap: 24rpx;
+  justify-content: space-between;
 }
 
 .feature-card {
-  width: calc(50% - 12rpx);
+  width: 48%;
+  margin-bottom: 24rpx;
   background: #ffffff;
   border-radius: 32rpx;
   padding: 40rpx 32rpx;
@@ -150,6 +151,7 @@ function handleToolTap(tool: string) {
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-sizing: border-box;
 }
 
 .feature-card:active {

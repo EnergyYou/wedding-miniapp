@@ -69,14 +69,14 @@
           <view class="section">
             <view class="section-header">
               <text class="section-title">备婚时间线</text>
-              <text class="section-link" @tap="goToTimeline">查看全部 &gt;</text>
+              <text class="section-link" @tap="goToTimeline()">查看全部 &gt;</text>
             </view>
-            <scroll-view scroll-x class="timeline-chips" :show-scrollbar="false">
+            <scroll-view v-if="timelineStages.length > 0" scroll-x class="timeline-chips" :show-scrollbar="false">
               <view
                 v-for="stage in timelineStages"
-                :key="stage.label"
+                :key="stage.id"
                 :class="['timeline-chip', { 'chip-completed': stage.completed, 'chip-active': stage.active }]"
-                @tap="goToTimeline"
+                @tap="goToTimeline(stage.id)"
               >
                 <text :class="['chip-icon', stage.completed ? 'icon-check' : stage.active ? 'icon-active' : 'icon-default']">
                   {{ stage.completed ? '\u2713' : stage.active ? '\u25CF' : '' }}
@@ -86,15 +86,18 @@
                 </text>
               </view>
             </scroll-view>
+            <view v-else class="empty-hint">
+              <text class="empty-hint-text">暂无时间线数据</text>
+            </view>
           </view>
 
           <!-- Current Tasks -->
           <view class="section">
             <view class="section-header">
               <text class="section-title">当前任务</text>
-              <text class="section-link" @tap="goToTimeline">查看全部 &gt;</text>
+              <text class="section-link" @tap="goToTimeline()">查看全部 &gt;</text>
             </view>
-            <view class="task-list">
+            <view v-if="currentTasks.length > 0" class="task-list">
               <view
                 v-for="task in currentTasks"
                 :key="task.id"
@@ -108,6 +111,7 @@
                 <view class="task-body">
                   <text :class="['task-name', { 'task-name-done': task.completed }]">{{ task.name }}</text>
                   <view class="task-meta">
+                    <text v-if="task.stageName" class="task-stage-tag">{{ task.stageName }}</text>
                     <view :class="['assignee-badge', `assignee-${task.assignee}`]">
                       <text class="assignee-text">{{ assigneeLabel(task.assignee) }}</text>
                     </view>
@@ -116,6 +120,9 @@
                   </view>
                 </view>
               </view>
+            </view>
+            <view v-else class="empty-hint">
+              <text class="empty-hint-text">暂无待办任务，太棒了！</text>
             </view>
           </view>
 
@@ -162,9 +169,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/store/user'
 import { useCoupleStore } from '@/store/couple'
 import { silentLogin } from '@/utils/auth'
+import { getCoupleInfo } from '@/api/couple'
 import { getTimelineList, type Timeline } from '@/api/timeline'
 import { getTaskList, getTaskStats, updateTaskStatus, type Task as ApiTask, type TaskStats } from '@/api/task'
 
@@ -172,6 +181,7 @@ import { getTaskList, getTaskStats, updateTaskStatus, type Task as ApiTask, type
 interface Task {
   readonly id: number
   readonly name: string
+  readonly stageName: string
   readonly assignee: 'groom' | 'bride' | 'both'
   readonly deadline: string
   readonly priority: boolean
@@ -179,6 +189,7 @@ interface Task {
 }
 
 interface TimelineStage {
+  readonly id: number
   readonly label: string
   readonly completed: boolean
   readonly active: boolean
@@ -199,12 +210,31 @@ onMounted(() => {
   statusBarHeight.value = sysInfo.statusBarHeight ?? 44
 })
 
+// ── Refresh couple status on show ──────────────────────────
+onShow(async () => {
+  if (userStore.token && !coupleStore.isBound) {
+    try {
+      const coupleInfo = await getCoupleInfo()
+      coupleStore.setCoupleInfo({
+        coupleId: String(coupleInfo.coupleId),
+        weddingDate: coupleInfo.weddingDate || '',
+        partnerName: coupleInfo.partnerName || '',
+      })
+    } catch {
+      // 未绑定，忽略
+    }
+  }
+})
+
 // ── Load dashboard data when bound ─────────────────────────
 watch(isCoupleBound, (bound) => {
   if (bound) {
     loadDashboardData()
   }
 }, { immediate: true })
+
+// Keep a local map of timelineId -> title for task stage labels
+const timelineIdToTitle = ref<Record<number, string>>({})
 
 async function loadDashboardData() {
   try {
@@ -213,11 +243,18 @@ async function loadDashboardData() {
       getTaskStats(),
       getTaskList(),
     ])
-    buildTimelineStages(timelines)
+    // Build timeline id->title map for task stage labels
+    const idMap: Record<number, string> = {}
+    for (const tl of timelines) {
+      idMap[tl.id] = tl.title
+    }
+    timelineIdToTitle.value = idMap
+
+    buildTimelineStages(timelines, tasks)
     applyStats(stats)
     buildTaskList(tasks)
   } catch {
-    // API not available yet, keep fallback data
+    // Keep empty state
   }
 }
 
@@ -234,8 +271,11 @@ function goToCoupleBind() {
   uni.navigateTo({ url: '/pages/couple/index' })
 }
 
-function goToTimeline() {
-  uni.navigateTo({ url: '/pages/timeline/index' })
+function goToTimeline(stageId?: number) {
+  const url = stageId
+    ? `/pages/timeline/index?stageId=${stageId}`
+    : '/pages/timeline/index'
+  uni.navigateTo({ url })
 }
 
 function goToBudget() {
@@ -258,7 +298,7 @@ function goToSpeeches() {
 const countdownDays = computed(() => {
   const dateStr = coupleStore.weddingDate
   if (!dateStr) {
-    return 128
+    return 0
   }
   const target = new Date(dateStr)
   const now = new Date()
@@ -269,7 +309,7 @@ const countdownDays = computed(() => {
 const formattedWeddingDate = computed(() => {
   const dateStr = coupleStore.weddingDate
   if (!dateStr) {
-    return '2026年9月18日 \u00B7 星期六'
+    return ''
   }
   const d = new Date(dateStr)
   const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
@@ -281,12 +321,12 @@ const formattedWeddingDate = computed(() => {
 })
 
 // ── Progress data ──────────────────────────────────────────
-const completedCount = ref(12)
-const totalTasks = ref(24)
+const completedCount = ref(0)
+const totalTasks = ref(0)
 const progressPercent = computed(() =>
   totalTasks.value > 0 ? Math.round((completedCount.value / totalTasks.value) * 100) : 0
 )
-const currentStage = ref('婚礼前3个月')
+const currentStage = ref('')
 
 function applyStats(stats: TaskStats) {
   completedCount.value = stats.completed
@@ -294,43 +334,61 @@ function applyStats(stats: TaskStats) {
 }
 
 // ── Timeline stages ────────────────────────────────────────
-const timelineStages = ref<ReadonlyArray<TimelineStage>>([
-  { label: '12个月前', completed: true, active: false },
-  { label: '6个月前', completed: true, active: false },
-  { label: '3个月前', completed: false, active: true },
-  { label: '1个月前', completed: false, active: false },
-  { label: '1周前', completed: false, active: false },
-  { label: '当天', completed: false, active: false },
-])
+const timelineStages = ref<ReadonlyArray<TimelineStage>>([])
 
-function buildTimelineStages(timelines: Timeline[]) {
-  if (!timelines || timelines.length === 0) return
+function buildTimelineStages(timelines: Timeline[], tasks: ApiTask[]) {
+  if (!timelines || timelines.length === 0) {
+    timelineStages.value = []
+    return
+  }
+
+  // Group tasks by timelineId to compute per-stage completion
+  const tasksByTimeline: Record<number, ApiTask[]> = {}
+  for (const t of tasks) {
+    const key = t.timelineId ?? 0
+    if (!tasksByTimeline[key]) tasksByTimeline[key] = []
+    tasksByTimeline[key].push(t)
+  }
+
   let foundActive = false
-  timelineStages.value = timelines.map((tl) => {
-    // Simple heuristic: first stage with incomplete tasks is "active"
-    const isActive = !foundActive
-    if (isActive) foundActive = true
+  const stages: TimelineStage[] = timelines.map((tl) => {
+    const stageTasks = tasksByTimeline[tl.id] ?? []
+    const allDone = stageTasks.length > 0 && stageTasks.every((t) => t.status === 2)
+    const hasPending = stageTasks.some((t) => t.status !== 2)
+
+    let completed = false
+    let active = false
+
+    if (allDone && stageTasks.length > 0) {
+      completed = true
+    } else if (hasPending && !foundActive) {
+      active = true
+      foundActive = true
+    }
+    // else: upcoming (not completed, not active)
+
     return {
+      id: tl.id,
       label: tl.title,
-      completed: false,
-      active: isActive,
+      completed,
+      active,
     }
   })
+
+  timelineStages.value = stages
+
   // Update current stage label
-  const active = timelineStages.value.find((s) => s.active)
+  const active = stages.find((s) => s.active)
   if (active) {
     currentStage.value = active.label
+  } else if (stages.length > 0) {
+    const lastCompleted = [...stages].reverse().find((s) => s.completed)
+    currentStage.value = lastCompleted ? lastCompleted.label : stages[0].label
   }
 }
 
 // ── Task list ──────────────────────────────────────────────
-const currentTasks = ref<Task[]>([
-  { id: 1, name: '预定婚宴酒店', assignee: 'both', deadline: '06月18日', priority: true, completed: true },
-  { id: 2, name: '拍摄婚纱照', assignee: 'both', deadline: '07月01日', priority: false, completed: true },
-  { id: 3, name: '选定婚礼跟拍团队', assignee: 'bride', deadline: '07月15日', priority: true, completed: false },
-  { id: 4, name: '确认伴郎人选', assignee: 'groom', deadline: '07月20日', priority: false, completed: false },
-  { id: 5, name: '选购婚戒', assignee: 'both', deadline: '08月01日', priority: true, completed: false },
-])
+const currentTasks = ref<Task[]>([])
 
 const assigneeMap: Record<number, 'groom' | 'bride' | 'both'> = { 0: 'both', 1: 'groom', 2: 'bride' }
 
@@ -341,35 +399,36 @@ function formatDeadline(dateStr: string | null): string {
 }
 
 function buildTaskList(tasks: ApiTask[]) {
-  if (!tasks || tasks.length === 0) return
+  if (!tasks || tasks.length === 0) {
+    currentTasks.value = []
+    return
+  }
   // Show only pending/in-progress tasks (limit 5)
   const pending = tasks.filter((t) => t.status !== 2).slice(0, 5)
-  if (pending.length > 0) {
-    currentTasks.value = pending.map((t) => ({
-      id: t.id,
-      name: t.title,
-      assignee: assigneeMap[t.assignee] ?? 'both',
-      deadline: formatDeadline(t.deadline),
-      priority: t.priority === 1,
-      completed: t.status === 2,
-    }))
-  }
+  currentTasks.value = pending.map((t) => ({
+    id: t.id,
+    name: t.title,
+    stageName: t.timelineId ? (timelineIdToTitle.value[t.timelineId] ?? '') : '',
+    assignee: assigneeMap[t.assignee] ?? 'both',
+    deadline: formatDeadline(t.deadline),
+    priority: t.priority === 1,
+    completed: t.status === 2,
+  }))
 }
 
 async function toggleTask(task: Task) {
+  const action = task.completed ? '取消完成' : '标记为已完成'
+  const { confirm } = await uni.showModal({
+    title: '确认操作',
+    content: `确定要${action}"${task.name}"吗？`,
+  })
+  if (!confirm) return
+
   const newStatus = task.completed ? 0 : 2
   try {
     await updateTaskStatus(task.id, newStatus)
-    const index = currentTasks.value.findIndex((t) => t.id === task.id)
-    if (index === -1) return
-    currentTasks.value = [
-      ...currentTasks.value.slice(0, index),
-      { ...currentTasks.value[index], completed: !currentTasks.value[index].completed },
-      ...currentTasks.value.slice(index + 1),
-    ]
-    // Refresh stats
-    const stats = await getTaskStats()
-    applyStats(stats)
+    // Refresh all data to keep consistency
+    await loadDashboardData()
   } catch {
     // Error already shown by request interceptor
   }
@@ -827,6 +886,26 @@ function assigneeLabel(assignee: Task['assignee']): string {
 
 .task-priority {
   font-size: 22rpx;
+}
+
+.task-stage-tag {
+  font-size: 20rpx;
+  color: $wedding-primary;
+  background: rgba($wedding-primary, 0.1);
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.empty-hint {
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  padding: 48rpx 24rpx;
+  text-align: center;
+}
+
+.empty-hint-text {
+  font-size: 26rpx;
+  color: $wedding-text-light;
 }
 
 // ── Quick actions ──────────────────────────────────────────

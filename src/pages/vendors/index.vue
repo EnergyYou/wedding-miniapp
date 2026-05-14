@@ -237,7 +237,7 @@ function handleEdit(vendor: Vendor) {
     name: vendor.name,
     category: vendor.category,
     contact: vendor.contact ?? '',
-    priceQuote: vendor.priceQuote ?? '',
+    priceQuote: vendor.priceQuote != null ? String(vendor.priceQuote) : '',
     score: vendor.score ?? 0,
     status: vendor.status,
     remark: vendor.remark ?? ''
@@ -262,8 +262,8 @@ async function handleSubmit() {
         name: form.value.name.trim(),
         category: form.value.category.trim(),
         contact: form.value.contact.trim() || undefined,
-        priceQuote: form.value.priceQuote.trim() || undefined,
-        score: form.value.score || undefined,
+        priceQuote: form.value.priceQuote.trim() ? Number(form.value.priceQuote) : undefined,
+        score: form.value.score,
         status: form.value.status,
         remark: form.value.remark.trim() || undefined
       })
@@ -273,8 +273,8 @@ async function handleSubmit() {
         name: form.value.name.trim(),
         category: form.value.category.trim(),
         contact: form.value.contact.trim() || undefined,
-        priceQuote: form.value.priceQuote.trim() || undefined,
-        score: form.value.score || undefined,
+        priceQuote: form.value.priceQuote.trim() ? Number(form.value.priceQuote) : undefined,
+        score: form.value.score,
         status: form.value.status,
         remark: form.value.remark.trim() || undefined
       })
@@ -283,8 +283,8 @@ async function handleSubmit() {
 
     showForm.value = false
     await Promise.all([fetchCategories(), fetchVendors()])
-  } catch {
-    uni.showToast({ title: '操作失败，请重试', icon: 'none' })
+  } catch (e) {
+    console.error('保存供应商失败:', e)
   }
 }
 
