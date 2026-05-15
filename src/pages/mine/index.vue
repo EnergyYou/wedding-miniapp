@@ -47,9 +47,9 @@
         </text>
       </view>
       <view class="info-divider" />
-      <view class="info-item">
+      <view class="info-item" @tap="handleShowPartner">
         <text class="info-label">伴侣</text>
-        <text class="info-value">
+        <text class="info-value" :class="{ clickable: isBound }">
           {{ isBound ? (coupleStore.partnerName || '已绑定') : '未绑定' }}
         </text>
       </view>
@@ -156,10 +156,10 @@
               v-for="i in 10"
               :key="'groom_' + i"
               class="avatar-grid-item"
-              :class="{ selected: profileForm.avatar === ('/static/avatars/groom_' + i + '.png') }"
-              @tap="selectAvatar('/static/avatars/groom_' + i + '.png')"
+              :class="{ selected: profileForm.avatar === ('/static/avatars/groom_' + i + '.webp') }"
+              @tap="selectAvatar('/static/avatars/groom_' + i + '.webp')"
             >
-              <image class="avatar-grid-img" :src="'/static/avatars/groom_' + i + '.png'" mode="aspectFill" />
+              <image class="avatar-grid-img" :src="'/static/avatars/groom_' + i + '.webp'" mode="aspectFill" />
             </view>
           </view>
         </view>
@@ -172,10 +172,42 @@
               v-for="i in 10"
               :key="'bride_' + i"
               class="avatar-grid-item"
-              :class="{ selected: profileForm.avatar === ('/static/avatars/bride_' + i + '.png') }"
-              @tap="selectAvatar('/static/avatars/bride_' + i + '.png')"
+              :class="{ selected: profileForm.avatar === ('/static/avatars/bride_' + i + '.webp') }"
+              @tap="selectAvatar('/static/avatars/bride_' + i + '.webp')"
             >
-              <image class="avatar-grid-img" :src="'/static/avatars/bride_' + i + '.png'" mode="aspectFill" />
+              <image class="avatar-grid-img" :src="'/static/avatars/bride_' + i + '.webp'" mode="aspectFill" />
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 伴侣信息弹窗 -->
+    <view v-if="showPartnerInfo" class="popup-mask" @tap="showPartnerInfo = false">
+      <view class="popup-content" @tap.stop>
+        <view class="popup-header">
+          <text class="popup-title">伴侣信息</text>
+          <text class="popup-close" @tap="showPartnerInfo = false">&times;</text>
+        </view>
+        <view class="partner-info-card">
+          <view class="partner-avatar-wrap">
+            <image v-if="partnerInfo.avatar" class="partner-avatar" :src="partnerInfo.avatar" mode="aspectFill" />
+            <view v-else class="partner-avatar avatar-placeholder-small">
+              <text class="avatar-icon-small">&#x1F464;</text>
+            </view>
+          </view>
+          <view class="partner-detail-list">
+            <view class="partner-row">
+              <text class="partner-row-label">昵称</text>
+              <text class="partner-row-value">{{ partnerInfo.nickName || '未设置' }}</text>
+            </view>
+            <view class="partner-row">
+              <text class="partner-row-label">性别</text>
+              <text class="partner-row-value">{{ sexLabel(partnerInfo.sex) }}</text>
+            </view>
+            <view class="partner-row">
+              <text class="partner-row-label">手机号</text>
+              <text class="partner-row-value">{{ partnerInfo.phonenumber || '未设置' }}</text>
             </view>
           </view>
         </view>
@@ -222,7 +254,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/store/user'
 import { useCoupleStore } from '@/store/couple'
 import { logout } from '@/api/user'
-import { getProfile, updateProfile } from '@/api/profile'
+import { getProfile, getPartnerProfile, updateProfile } from '@/api/profile'
 import { getCoupleInfo, updateWeddingDate } from '@/api/couple'
 import { silentLogin } from '@/utils/auth'
 
@@ -232,6 +264,9 @@ const coupleStore = useCoupleStore()
 const showDatePicker = ref(false)
 const showProfileForm = ref(false)
 const showAvatarPicker = ref(false)
+const showPartnerInfo = ref(false)
+
+const partnerInfo = ref({ nickName: '', avatar: '', sex: '', phonenumber: '' })
 
 const profileForm = ref({
   nickName: '',
@@ -320,6 +355,25 @@ function handleAvatarTap() {
   }
 }
 
+function sexLabel(sex: string): string {
+  const map: Record<string, string> = { '0': '男', '1': '女', '2': '未设置' }
+  return map[sex] || '未设置'
+}
+
+async function handleShowPartner() {
+  if (!isBound.value) return
+  try {
+    uni.showLoading({ title: '加载中...' })
+    const info = await getPartnerProfile()
+    partnerInfo.value = info
+    showPartnerInfo.value = true
+  } catch {
+    uni.showToast({ title: '获取伴侣信息失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
+}
+
 function handleEditProfile() {
   if (!isLoggedIn.value) {
     uni.showToast({ title: '请先登录', icon: 'none' })
@@ -342,14 +396,23 @@ function selectAvatar(path: string) {
 
 async function handleSaveProfile() {
   const d = profileForm.value
-  if (!d.nickName.trim()) {
+  const nickName = d.nickName.trim()
+  if (!nickName) {
     uni.showToast({ title: '请输入昵称', icon: 'none' })
+    return
+  }
+  if (nickName.length < 2 || nickName.length > 20) {
+    uni.showToast({ title: '昵称需要2-20个字符', icon: 'none' })
+    return
+  }
+  if (d.phonenumber && !/^1[3-9]\d{9}$/.test(d.phonenumber)) {
+    uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
     return
   }
   try {
     uni.showLoading({ title: '保存中...' })
     await updateProfile({
-      nickName: d.nickName.trim(),
+      nickName,
       avatar: d.avatar,
       sex: d.sex,
       phonenumber: d.phonenumber || undefined,
@@ -604,6 +667,10 @@ async function handleLogout() {
   font-size: 28rpx;
   color: $wedding-text;
   font-weight: 500;
+}
+
+.info-value.clickable {
+  color: $wedding-primary;
 }
 
 .info-value.countdown {
@@ -915,5 +982,52 @@ async function handleLogout() {
   height: 80rpx;
   font-size: 30rpx;
   color: $wedding-text;
+}
+
+/* Partner Info */
+.partner-info-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24rpx 0;
+}
+
+.partner-avatar-wrap {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 24rpx;
+}
+
+.partner-avatar {
+  width: 140rpx;
+  height: 140rpx;
+}
+
+.partner-detail-list {
+  width: 100%;
+}
+
+.partner-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.partner-row:last-child {
+  border-bottom: none;
+}
+
+.partner-row-label {
+  font-size: 28rpx;
+  color: $wedding-text-light;
+}
+
+.partner-row-value {
+  font-size: 28rpx;
+  color: $wedding-text;
+  font-weight: 500;
 }
 </style>
