@@ -8,11 +8,14 @@
           <image
             v-if="userStore.avatar"
             class="avatar"
-            :src="userStore.avatar"
+            :src="avatarUrl"
             mode="aspectFill"
           />
           <view v-else class="avatar-placeholder">
             <text class="avatar-icon">&#x1F464;</text>
+          </view>
+          <view v-if="isLoggedIn" class="avatar-edit-badge">
+            <text class="edit-badge-text">&#x270E;</text>
           </view>
         </view>
         <view class="user-detail">
@@ -54,6 +57,11 @@
 
     <!-- 菜单列表 -->
     <view class="menu-card">
+      <view class="menu-item" @tap="handleEditProfile">
+        <text class="menu-text">个人信息</text>
+        <text class="menu-arrow">&#x276F;</text>
+      </view>
+      <view class="menu-divider" />
       <view class="menu-item" @tap="handleSetDate">
         <text class="menu-text">设置婚期</text>
         <text class="menu-arrow">&#x276F;</text>
@@ -74,6 +82,103 @@
     <view v-if="isLoggedIn" class="logout-card">
       <view class="logout-btn" @tap="handleLogout">
         <text class="logout-text">退出登录</text>
+      </view>
+    </view>
+
+    <!-- 个人信息编辑弹窗 -->
+    <view v-if="showProfileForm" class="popup-mask" @tap="showProfileForm = false">
+      <view class="popup-content" @tap.stop>
+        <view class="popup-header">
+          <text class="popup-title">个人信息</text>
+          <text class="popup-close" @tap="showProfileForm = false">&times;</text>
+        </view>
+
+        <!-- 头像 -->
+        <view class="form-group">
+          <text class="form-label">头像</text>
+          <view class="current-avatar-row" @tap="showAvatarPicker = true">
+            <image v-if="profileForm.avatar" class="current-avatar" :src="resolveAvatarUrl(profileForm.avatar)" mode="aspectFill" />
+            <view v-else class="current-avatar avatar-placeholder-small">
+              <text class="avatar-icon-small">&#x1F464;</text>
+            </view>
+            <text class="change-avatar-text">点击更换头像</text>
+          </view>
+        </view>
+
+        <!-- 昵称 -->
+        <view class="form-group">
+          <text class="form-label">昵称</text>
+          <input v-model="profileForm.nickName" class="form-input" placeholder="请输入昵称" maxlength="20" />
+        </view>
+
+        <!-- 性别 -->
+        <view class="form-group">
+          <text class="form-label">性别</text>
+          <view class="form-picker">
+            <view class="form-picker-item" :class="{ active: profileForm.sex === '0' }" @tap="profileForm.sex = '0'">
+              <text>男</text>
+            </view>
+            <view class="form-picker-item" :class="{ active: profileForm.sex === '1' }" @tap="profileForm.sex = '1'">
+              <text>女</text>
+            </view>
+            <view class="form-picker-item" :class="{ active: profileForm.sex === '2' || !profileForm.sex }" @tap="profileForm.sex = '2'">
+              <text>未设置</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 手机号 -->
+        <view class="form-group">
+          <text class="form-label">手机号</text>
+          <input v-model="profileForm.phonenumber" class="form-input" placeholder="请输入手机号" type="number" maxlength="11" />
+        </view>
+
+        <view class="form-actions">
+          <button class="form-btn form-btn-cancel" @tap="showProfileForm = false">取消</button>
+          <button class="form-btn form-btn-submit" @tap="handleSaveProfile">保存</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 头像选择弹窗 -->
+    <view v-if="showAvatarPicker" class="popup-mask" @tap="showAvatarPicker = false">
+      <view class="popup-content" @tap.stop>
+        <view class="popup-header">
+          <text class="popup-title">选择头像</text>
+          <text class="popup-close" @tap="showAvatarPicker = false">&times;</text>
+        </view>
+
+        <!-- 新郎头像 -->
+        <view class="avatar-section">
+          <text class="avatar-section-title">新郎头像</text>
+          <view class="avatar-grid">
+            <view
+              v-for="i in 10"
+              :key="'groom_' + i"
+              class="avatar-grid-item"
+              :class="{ selected: profileForm.avatar === ('/static/avatars/groom_' + i + '.png') }"
+              @tap="selectAvatar('/static/avatars/groom_' + i + '.png')"
+            >
+              <image class="avatar-grid-img" :src="'/static/avatars/groom_' + i + '.png'" mode="aspectFill" />
+            </view>
+          </view>
+        </view>
+
+        <!-- 新娘头像 -->
+        <view class="avatar-section">
+          <text class="avatar-section-title">新娘头像</text>
+          <view class="avatar-grid">
+            <view
+              v-for="i in 10"
+              :key="'bride_' + i"
+              class="avatar-grid-item"
+              :class="{ selected: profileForm.avatar === ('/static/avatars/bride_' + i + '.png') }"
+              @tap="selectAvatar('/static/avatars/bride_' + i + '.png')"
+            >
+              <image class="avatar-grid-img" :src="'/static/avatars/bride_' + i + '.png'" mode="aspectFill" />
+            </view>
+          </view>
+        </view>
       </view>
     </view>
 
@@ -117,6 +222,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/store/user'
 import { useCoupleStore } from '@/store/couple'
 import { logout } from '@/api/user'
+import { getProfile, updateProfile } from '@/api/profile'
 import { getCoupleInfo, updateWeddingDate } from '@/api/couple'
 import { silentLogin } from '@/utils/auth'
 
@@ -124,10 +230,30 @@ const userStore = useUserStore()
 const coupleStore = useCoupleStore()
 
 const showDatePicker = ref(false)
+const showProfileForm = ref(false)
+const showAvatarPicker = ref(false)
+
+const profileForm = ref({
+  nickName: '',
+  avatar: '',
+  sex: '2',
+  phonenumber: '',
+})
 
 const isLoggedIn = computed(() => !!userStore.token)
 const isBound = computed(() => coupleStore.isBound)
 const weddingDate = computed(() => coupleStore.weddingDate)
+
+const avatarUrl = computed(() => resolveAvatarUrl(userStore.avatar))
+
+function resolveAvatarUrl(avatar: string): string {
+  if (!avatar) return ''
+  // Local static path starts with /static
+  if (avatar.startsWith('/static') || avatar.startsWith('static/')) {
+    return avatar
+  }
+  return avatar
+}
 
 const daysUntilWedding = computed(() => {
   if (!weddingDate.value) return null
@@ -191,6 +317,57 @@ onShow(async () => {
 function handleAvatarTap() {
   if (!isLoggedIn.value) {
     silentLogin()
+  }
+}
+
+function handleEditProfile() {
+  if (!isLoggedIn.value) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    silentLogin()
+    return
+  }
+  profileForm.value = {
+    nickName: userStore.nickName || '',
+    avatar: userStore.avatar || '',
+    sex: userStore.sex || '2',
+    phonenumber: userStore.phonenumber || '',
+  }
+  showProfileForm.value = true
+}
+
+function selectAvatar(path: string) {
+  profileForm.value = { ...profileForm.value, avatar: path }
+  showAvatarPicker.value = false
+}
+
+async function handleSaveProfile() {
+  const d = profileForm.value
+  if (!d.nickName.trim()) {
+    uni.showToast({ title: '请输入昵称', icon: 'none' })
+    return
+  }
+  try {
+    uni.showLoading({ title: '保存中...' })
+    await updateProfile({
+      nickName: d.nickName.trim(),
+      avatar: d.avatar,
+      sex: d.sex,
+      phonenumber: d.phonenumber || undefined,
+    })
+    // Update local store
+    userStore.setUserInfo({
+      userId: userStore.userId,
+      nickName: d.nickName.trim(),
+      avatar: d.avatar,
+      sex: d.sex,
+      phonenumber: d.phonenumber,
+    })
+    showProfileForm.value = false
+    uni.showToast({ title: '保存成功', icon: 'success' })
+  } catch {
+    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+  } finally {
+    uni.hideLoading()
   }
 }
 
@@ -319,6 +496,7 @@ async function handleLogout() {
 }
 
 .avatar-wrapper {
+  position: relative;
   width: 120rpx;
   height: 120rpx;
   border-radius: 50%;
@@ -343,6 +521,24 @@ async function handleLogout() {
 
 .avatar-icon {
   font-size: 60rpx;
+}
+
+.avatar-edit-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 36rpx;
+  height: 36rpx;
+  background: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-badge-text {
+  font-size: 20rpx;
+  color: $wedding-primary;
 }
 
 .user-detail {
@@ -478,6 +674,188 @@ async function handleLogout() {
 .logout-text {
   font-size: 30rpx;
   color: #e74c3c;
+}
+
+/* Popup Form */
+.popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.popup-content {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 40rpx 40rpx calc(40rpx + env(safe-area-inset-bottom));
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.popup-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $wedding-text;
+}
+
+.popup-close {
+  font-size: 36rpx;
+  color: #999;
+  padding: 8rpx;
+}
+
+.form-group {
+  margin-bottom: 24rpx;
+}
+
+.form-label {
+  font-size: 26rpx;
+  color: $wedding-text-light;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  background: #F8F8F8;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+
+.form-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  text-align: center;
+  border: none;
+}
+
+.form-btn::after {
+  border: none;
+}
+
+.form-btn-cancel {
+  background: #F0F0F0;
+  color: #666;
+}
+
+.form-btn-submit {
+  background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+  color: #ffffff;
+}
+
+.form-picker {
+  display: flex;
+  gap: 16rpx;
+}
+
+.form-picker-item {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  background: #F8F8F8;
+  color: #666;
+}
+
+.form-picker-item.active {
+  background: $wedding-primary;
+  color: #ffffff;
+}
+
+/* Avatar selection */
+.current-avatar-row {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+}
+
+.current-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: #F8F8F8;
+}
+
+.avatar-placeholder-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F0F0F0;
+}
+
+.avatar-icon-small {
+  font-size: 40rpx;
+}
+
+.change-avatar-text {
+  margin-left: 24rpx;
+  font-size: 26rpx;
+  color: $wedding-primary;
+}
+
+.avatar-section {
+  margin-bottom: 32rpx;
+}
+
+.avatar-section-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: $wedding-text;
+  margin-bottom: 16rpx;
+  display: block;
+}
+
+.avatar-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.avatar-grid-item {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4rpx solid transparent;
+  box-sizing: border-box;
+}
+
+.avatar-grid-item.selected {
+  border-color: $wedding-primary;
+  box-shadow: 0 0 0 4rpx rgba($wedding-primary, 0.2);
+}
+
+.avatar-grid-img {
+  width: 100%;
+  height: 100%;
 }
 
 /* Date Picker */
