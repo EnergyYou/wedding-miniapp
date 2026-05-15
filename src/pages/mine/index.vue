@@ -442,7 +442,7 @@ function handleShowDateDetail() {
       lunar: `${lunar.getYearInChinese()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`,
       ganzhi: `${lunar.getYearInGanZhi()}年 ${lunar.getMonthInGanZhi()}月 ${lunar.getDayInGanZhi()}日`,
       zodiac: lunar.getYearShengXiao(),
-      star: lunar.getDayXiu(),
+      star: `${lunar.getGong()}方${lunar.getXiu()}宿`,
       yi: yiList.length > 0 ? yiList.join('、') : '无',
       ji: jiList.length > 0 ? jiList.join('、') : '无',
     }
