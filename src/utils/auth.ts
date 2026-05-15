@@ -49,7 +49,9 @@ export async function silentLogin(): Promise<boolean> {
 
     return true
   } catch (error) {
-    console.error('登录失败:', error)
+    const msg = error instanceof Error ? error.message : '登录失败，请重试'
+    console.error('登录失败:', msg)
+    uni.showToast({ title: msg, icon: 'none' })
     return false
   }
 }

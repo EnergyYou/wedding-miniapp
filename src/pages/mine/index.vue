@@ -33,9 +33,9 @@
 
     <!-- 信息卡片 -->
     <view class="info-card">
-      <view class="info-item">
+      <view class="info-item" @tap="handleShowDateDetail">
         <text class="info-label">婚期</text>
-        <text class="info-value">
+        <text class="info-value" :class="{ clickable: !!weddingDate }">
           {{ weddingDate ? formatDate(weddingDate) : '未设置' }}
         </text>
       </view>
@@ -214,6 +214,50 @@
       </view>
     </view>
 
+    <!-- 婚期详情弹窗 -->
+    <view v-if="showDateDetail" class="popup-mask" @tap="showDateDetail = false">
+      <view class="popup-content" @tap.stop>
+        <view class="popup-header">
+          <text class="popup-title">婚期详情</text>
+          <text class="popup-close" @tap="showDateDetail = false">&times;</text>
+        </view>
+        <view class="date-detail-card">
+          <view class="date-main">
+            <text class="date-main-day">{{ dateDetail.day }}</text>
+            <view class="date-main-right">
+              <text class="date-main-weekday">{{ dateDetail.weekday }}</text>
+              <text class="date-main-full">{{ dateDetail.gregorian }}</text>
+            </view>
+          </view>
+          <view class="date-divider" />
+          <view class="date-row">
+            <text class="date-row-label">农历</text>
+            <text class="date-row-value">{{ dateDetail.lunar }}</text>
+          </view>
+          <view class="date-row">
+            <text class="date-row-label">天干地支</text>
+            <text class="date-row-value">{{ dateDetail.ganzhi }}</text>
+          </view>
+          <view class="date-row">
+            <text class="date-row-label">生肖</text>
+            <text class="date-row-value">{{ dateDetail.zodiac }}</text>
+          </view>
+          <view class="date-row">
+            <text class="date-row-label">星宿</text>
+            <text class="date-row-value">{{ dateDetail.star }}</text>
+          </view>
+          <view class="date-row">
+            <text class="date-row-label">宜</text>
+            <text class="date-row-value date-yi">{{ dateDetail.yi }}</text>
+          </view>
+          <view class="date-row">
+            <text class="date-row-label">忌</text>
+            <text class="date-row-value date-ji">{{ dateDetail.ji }}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
     <!-- 日期选择器弹窗 -->
     <view v-if="showDatePicker" class="picker-mask" @tap="showDatePicker = false">
       <view class="picker-container" @tap.stop>
@@ -257,6 +301,7 @@ import { logout } from '@/api/user'
 import { getProfile, getPartnerProfile, updateProfile } from '@/api/profile'
 import { getCoupleInfo, updateWeddingDate } from '@/api/couple'
 import { silentLogin } from '@/utils/auth'
+import { Solar } from 'lunar-javascript'
 
 const userStore = useUserStore()
 const coupleStore = useCoupleStore()
@@ -265,8 +310,13 @@ const showDatePicker = ref(false)
 const showProfileForm = ref(false)
 const showAvatarPicker = ref(false)
 const showPartnerInfo = ref(false)
+const showDateDetail = ref(false)
 
 const partnerInfo = ref({ nickName: '', avatar: '', sex: '', phonenumber: '' })
+const dateDetail = ref({
+  day: '', weekday: '', gregorian: '', lunar: '',
+  ganzhi: '', zodiac: '', star: '', yi: '', ji: '',
+})
 
 const profileForm = ref({
   nickName: '',
@@ -371,6 +421,34 @@ async function handleShowPartner() {
     uni.showToast({ title: '获取伴侣信息失败', icon: 'none' })
   } finally {
     uni.hideLoading()
+  }
+}
+
+function handleShowDateDetail() {
+  if (!weddingDate.value) return
+  try {
+    const d = new Date(weddingDate.value)
+    const solar = Solar.fromDate(d)
+    const lunar = solar.getLunar()
+
+    const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+    const yiList = lunar.getDayYi()
+    const jiList = lunar.getDayJi()
+
+    dateDetail.value = {
+      day: String(d.getDate()),
+      weekday: weekdays[d.getDay()],
+      gregorian: `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`,
+      lunar: `${lunar.getYearInChinese()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`,
+      ganzhi: `${lunar.getYearInGanZhi()}年 ${lunar.getMonthInGanZhi()}月 ${lunar.getDayInGanZhi()}日`,
+      zodiac: lunar.getYearShengXiao(),
+      star: lunar.getDayXiu(),
+      yi: yiList.length > 0 ? yiList.join('、') : '无',
+      ji: jiList.length > 0 ? jiList.join('、') : '无',
+    }
+    showDateDetail.value = true
+  } catch {
+    uni.showToast({ title: '日期解析失败', icon: 'none' })
   }
 }
 
@@ -1029,5 +1107,75 @@ async function handleLogout() {
   font-size: 28rpx;
   color: $wedding-text;
   font-weight: 500;
+}
+
+/* Date Detail */
+.date-detail-card {
+  padding: 16rpx 0;
+}
+
+.date-main {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.date-main-day {
+  font-size: 96rpx;
+  font-weight: 800;
+  color: $wedding-primary;
+  line-height: 1;
+  margin-right: 24rpx;
+}
+
+.date-main-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.date-main-weekday {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: $wedding-text;
+}
+
+.date-main-full {
+  font-size: 24rpx;
+  color: $wedding-text-light;
+  margin-top: 4rpx;
+}
+
+.date-divider {
+  height: 1rpx;
+  background-color: #f0f0f0;
+  margin: 16rpx 0;
+}
+
+.date-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 16rpx 0;
+}
+
+.date-row-label {
+  font-size: 26rpx;
+  color: $wedding-text-light;
+  flex-shrink: 0;
+  width: 120rpx;
+}
+
+.date-row-value {
+  font-size: 26rpx;
+  color: $wedding-text;
+  text-align: right;
+  flex: 1;
+}
+
+.date-yi {
+  color: #4caf50;
+}
+
+.date-ji {
+  color: #f44336;
 }
 </style>
