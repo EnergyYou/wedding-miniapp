@@ -8,82 +8,62 @@
       </view>
     </view>
 
-    <!-- 功能入口网格 -->
-    <view class="feature-grid">
-      <view class="feature-card" @tap="navigateTo('/pages/items/index')">
-        <view class="icon" style="background: #FFF0F5; color: #E8A0BF">
-          <text class="icon-text">&#x1F4E6;</text>
+    <!-- 2x4 网格布局 -->
+    <view class="tool-grid">
+      <view class="tool-card" @tap="navigateTo('/pages/items/index')">
+        <view class="tool-icon-wrap" style="background: #FFF0F5">
+          <text class="tool-emoji">{{ '📦' }}</text>
         </view>
-        <text class="name">物品清单</text>
-        <text class="desc">采购物品跟踪管理</text>
+        <text class="tool-name">物品清单</text>
       </view>
-      <view class="feature-card" @tap="navigateTo('/pages/vendors/index')">
-        <view class="icon" style="background: #E8F5E9; color: #4CAF50">
-          <text class="icon-text">&#x1F3E0;</text>
-        </view>
-        <text class="name">供应商管理</text>
-        <text class="desc">对比选择最优方案</text>
-      </view>
-      <view class="feature-card" @tap="navigateTo('/pages/speeches/index')">
-        <view class="icon" style="background: #E3F2FD; color: #1976D2">
-          <text class="icon-text">&#x1F4DD;</text>
-        </view>
-        <text class="name">婚礼话术</text>
-        <text class="desc">致辞模板一键复制</text>
-      </view>
-      <view class="feature-card" @tap="navigateTo('/pages/timeline/index')">
-        <view class="icon" style="background: #FFF8E1; color: #F57C00">
-          <text class="icon-text">&#x1F4C5;</text>
-        </view>
-        <text class="name">备婚时间线</text>
-        <text class="desc">全流程任务追踪</text>
-      </view>
-    </view>
 
-    <!-- 实用工具 -->
-    <view class="tools-section">
-      <text class="section-title">实用工具</text>
-      <view class="tool-list">
-        <view class="tool-item" @tap="handleToolTap('collaboration')">
-          <view class="tool-icon" style="background: #FCE4EC; color: #E91E63">
-            <text class="tool-icon-text">&#x1F496;</text>
-          </view>
-          <view class="tool-info">
-            <text class="tool-name">双人协作</text>
-            <text class="tool-desc">与另一半共同管理备婚</text>
-          </view>
-          <text class="arrow">></text>
+      <view class="tool-card" @tap="navigateTo('/pages/vendors/index')">
+        <view class="tool-icon-wrap" style="background: #E8F5E9">
+          <text class="tool-emoji">{{ '🏠' }}</text>
         </view>
-        <view class="tool-item" @tap="handleToolTap('budget')">
-          <view class="tool-icon" style="background: #E8F5E9; color: #4CAF50">
-            <text class="tool-icon-text">&#x1F4CA;</text>
-          </view>
-          <view class="tool-info">
-            <text class="tool-name">婚礼预算</text>
-            <text class="tool-desc">支出记录与预算管控</text>
-          </view>
-          <text class="arrow">></text>
+        <text class="tool-name">供应商</text>
+      </view>
+
+      <view class="tool-card" @tap="navigateTo('/pages/speeches/index')">
+        <view class="tool-icon-wrap" style="background: #E3F2FD">
+          <text class="tool-emoji">{{ '📝' }}</text>
         </view>
-        <view class="tool-item" @tap="handleToolTap('reminders')">
-          <view class="tool-icon" style="background: #FFF3E0; color: #F57C00">
-            <text class="tool-icon-text">&#x1F514;</text>
-          </view>
-          <view class="tool-info">
-            <text class="tool-name">提醒设置</text>
-            <text class="tool-desc">任务截止日期提醒</text>
-          </view>
-          <text class="arrow">></text>
+        <text class="tool-name">婚礼话术</text>
+      </view>
+
+      <view class="tool-card" @tap="navigateTo('/pages/timeline/index')">
+        <view class="tool-icon-wrap" style="background: #FFF8E1">
+          <text class="tool-emoji">{{ '📅' }}</text>
         </view>
-        <view class="tool-item" @tap="handleToolTap('guide')">
-          <view class="tool-icon" style="background: #E3F2FD; color: #1976D2">
-            <text class="tool-icon-text">&#x1F4DA;</text>
-          </view>
-          <view class="tool-info">
-            <text class="tool-name">备婚攻略</text>
-            <text class="tool-desc">经验分享与注意事项</text>
-          </view>
-          <text class="arrow">></text>
+        <text class="tool-name">备婚时间线</text>
+      </view>
+
+      <view class="tool-card" @tap="navigateTo('/pages/collaboration/index')">
+        <view class="tool-icon-wrap" style="background: #FCE4EC">
+          <text class="tool-emoji">{{ '💑' }}</text>
         </view>
+        <text class="tool-name">双人协作</text>
+      </view>
+
+      <view class="tool-card" @tap="navigateTo('/pages/reminder/index')">
+        <view class="tool-icon-wrap" style="background: #FFF3E0">
+          <text class="tool-emoji">{{ '🔔' }}</text>
+        </view>
+        <text class="tool-name">提醒设置</text>
+      </view>
+
+      <view class="tool-card" @tap="navigateTo('/pages/guide/index')">
+        <view class="tool-icon-wrap" style="background: #E8EAF6">
+          <text class="tool-emoji">{{ '📖' }}</text>
+        </view>
+        <text class="tool-name">备婚攻略</text>
+      </view>
+
+      <view class="tool-card" @tap="navigateTo('/pages/tasklist/index')">
+        <view class="tool-icon-wrap" style="background: #F3E5F5">
+          <text class="tool-emoji">{{ '✅' }}</text>
+        </view>
+        <text class="tool-name">全部任务</text>
       </view>
     </view>
   </view>
@@ -92,22 +72,6 @@
 <script setup lang="ts">
 function navigateTo(url: string) {
   uni.navigateTo({ url })
-}
-
-function handleToolTap(tool: string) {
-  if (tool === 'budget') {
-    uni.switchTab({ url: '/pages/budget/index' })
-    return
-  }
-  const pageMap: Record<string, string> = {
-    collaboration: '/pages/collaboration/index',
-    reminders: '/pages/reminder/index',
-    guide: '/pages/guide/index',
-  }
-  const url = pageMap[tool]
-  if (url) {
-    uni.navigateTo({ url })
-  }
 }
 </script>
 
@@ -142,19 +106,19 @@ function handleToolTap(tool: string) {
   display: block;
 }
 
-.feature-grid {
+.tool-grid {
   padding: 32rpx;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
 }
 
-.feature-card {
+.tool-card {
   width: 48%;
   margin-bottom: 24rpx;
   background: #ffffff;
   border-radius: 32rpx;
-  padding: 40rpx 32rpx;
+  padding: 36rpx 24rpx;
   box-shadow: 0 4rpx 16rpx rgba(232, 160, 191, 0.1);
   display: flex;
   flex-direction: column;
@@ -162,103 +126,23 @@ function handleToolTap(tool: string) {
   box-sizing: border-box;
 }
 
-.feature-card:active {
-  opacity: 0.9;
-}
-
-.icon {
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: 32rpx;
+.tool-icon-wrap {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 24rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24rpx;
+  margin-bottom: 20rpx;
 }
 
-.icon-text {
-  font-size: 56rpx;
-}
-
-.name {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: $wedding-text;
-  margin-bottom: 8rpx;
-}
-
-.desc {
-  font-size: 24rpx;
-  color: #999;
-}
-
-.tools-section {
-  padding: 0 32rpx 32rpx;
-}
-
-.section-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  margin-bottom: 24rpx;
-  display: block;
-}
-
-.tool-list {
-  background: #ffffff;
-  border-radius: 32rpx;
-  overflow: hidden;
-  box-shadow: 0 4rpx 16rpx rgba(232, 160, 191, 0.1);
-}
-
-.tool-item {
-  display: flex;
-  align-items: center;
-  padding: 28rpx 32rpx;
-  border-bottom: 1rpx solid #F5F5F5;
-}
-
-.tool-item:last-child {
-  border-bottom: none;
-}
-
-.tool-item:active {
-  background-color: #FAFAFA;
-}
-
-.tool-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 20rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 24rpx;
-  flex-shrink: 0;
-}
-
-.tool-icon-text {
-  font-size: 36rpx;
-}
-
-.tool-info {
-  flex: 1;
+.tool-emoji {
+  font-size: 44rpx;
 }
 
 .tool-name {
   font-size: 28rpx;
-  font-weight: 500;
-  display: block;
-}
-
-.tool-desc {
-  font-size: 24rpx;
-  color: #999;
-  margin-top: 4rpx;
-  display: block;
-}
-
-.arrow {
-  color: #ccc;
-  font-size: 28rpx;
+  font-weight: 600;
+  color: $wedding-text;
 }
 </style>

@@ -130,35 +130,35 @@
             </view>
           </view>
 
-          <!-- Quick Actions -->
+          <!-- Budget Overview -->
           <view class="section">
-            <view class="section-header">
-              <text class="section-title">快捷入口</text>
-            </view>
-            <view class="quick-actions">
-              <view class="action-item" @tap="goToBudget">
-                <view class="action-icon action-icon-pink">
-                  <text class="action-icon-text">&#x1F4B0;</text>
-                </view>
-                <text class="action-label">预算管理</text>
+            <view class="card budget-card" @tap="goToBudget">
+              <view class="card-header">
+                <text class="card-title">预算概览</text>
+                <text class="budget-link">查看详情 ></text>
               </view>
-              <view class="action-item" @tap="goToItems">
-                <view class="action-icon action-icon-orange">
-                  <text class="action-icon-text">&#x1F4E6;</text>
+              <view v-if="budgetLoaded" class="budget-grid">
+                <view class="budget-item">
+                  <text class="budget-value">{{ budgetSummary.totalPlanned }}</text>
+                  <text class="budget-label">总预算(元)</text>
                 </view>
-                <text class="action-label">物品清单</text>
+                <view class="budget-item">
+                  <text class="budget-value budget-spent">{{ budgetSummary.totalActual }}</text>
+                  <text class="budget-label">已花费(元)</text>
+                </view>
+                <view class="budget-item">
+                  <text class="budget-value budget-remain">{{ budgetSummary.remaining }}</text>
+                  <text class="budget-label">剩余(元)</text>
+                </view>
               </view>
-              <view class="action-item" @tap="goToVendors">
-                <view class="action-icon action-icon-green">
-                  <text class="action-icon-text">&#x1F3E2;</text>
-                </view>
-                <text class="action-label">供应商</text>
+              <view v-else class="budget-loading">
+                <text class="budget-loading-text">加载中...</text>
               </view>
-              <view class="action-item" @tap="goToSpeeches">
-                <view class="action-icon action-icon-blue">
-                  <text class="action-icon-text">&#x1F4AC;</text>
+              <view v-if="budgetLoaded" class="budget-progress-wrap">
+                <view class="progress-bar-bg">
+                  <view class="budget-bar-fill" :style="{ width: budgetPercent + '%' }" />
                 </view>
-                <text class="action-label">婚礼话术</text>
+                <text class="budget-percent">已使用 {{ budgetPercent }}%</text>
               </view>
             </view>
           </view>
@@ -202,6 +202,7 @@ import { silentLogin } from '@/utils/auth'
 import { getCoupleInfo } from '@/api/couple'
 import { getTimelineList, type Timeline } from '@/api/timeline'
 import { getTaskList, getTaskStats, updateTaskStatus, type Task as ApiTask, type TaskStats } from '@/api/task'
+import { getBudgetSummary, type BudgetSummary } from '@/api/budget'
 
 // ── Types ──────────────────────────────────────────────────
 interface Task {
@@ -284,8 +285,29 @@ async function loadDashboardData() {
     buildTimelineStages(timelines, tasks)
     applyStats(stats)
     buildTaskList(tasks)
+    loadBudget()
   } catch {
     // Keep empty state
+  }
+}
+
+// ── Budget overview ────────────────────────────────────────
+const budgetSummary = ref<BudgetSummary>({ totalPlanned: '0', totalActual: '0', remaining: '0', percentage: '0' })
+const budgetLoaded = ref(false)
+
+const budgetPercent = computed(() => {
+  const planned = parseFloat(budgetSummary.value.totalPlanned) || 0
+  if (planned === 0) return 0
+  const actual = parseFloat(budgetSummary.value.totalActual) || 0
+  return Math.min(Math.round((actual / planned) * 100), 100)
+})
+
+async function loadBudget() {
+  try {
+    budgetSummary.value = await getBudgetSummary()
+    budgetLoaded.value = true
+  } catch {
+    budgetLoaded.value = false
   }
 }
 
@@ -319,18 +341,6 @@ function goToAddTask() {
 
 function goToBudget() {
   uni.switchTab({ url: '/pages/budget/index' })
-}
-
-function goToItems() {
-  uni.navigateTo({ url: '/pages/items/index' })
-}
-
-function goToVendors() {
-  uni.navigateTo({ url: '/pages/vendors/index' })
-}
-
-function goToSpeeches() {
-  uni.navigateTo({ url: '/pages/speeches/index' })
 }
 
 // ── Wedding countdown ──────────────────────────────────────
@@ -1029,57 +1039,75 @@ function statusLabel(status: number): string {
   color: $wedding-text-light;
 }
 
-// ── Quick actions ──────────────────────────────────────────
-.quick-actions {
-  display: flex;
-  justify-content: space-between;
-  background-color: #ffffff;
-  border-radius: 24rpx;
-  padding: 36rpx 24rpx;
-  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.05);
+// ── Budget overview ──────────────────────────────────────────
+.budget-card {
+  margin-bottom: 0;
+  margin-top: 0;
 }
 
-.action-item {
+.budget-link {
+  font-size: 24rpx;
+  color: $wedding-text-light;
+}
+
+.budget-grid {
+  display: flex;
+  justify-content: space-around;
+  margin: 24rpx 0 20rpx;
+}
+
+.budget-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
 }
 
-.action-icon {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 48rpx;
+.budget-value {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $wedding-text;
+}
+
+.budget-spent {
+  color: #F57C00;
+}
+
+.budget-remain {
+  color: #4CAF50;
+}
+
+.budget-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+
+.budget-progress-wrap {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 16rpx;
+  gap: 12rpx;
 }
 
-.action-icon-pink {
-  background-color: rgba($wedding-primary, 0.15);
+.budget-bar-fill {
+  height: 100%;
+  border-radius: 8rpx;
+  background: linear-gradient(90deg, $wedding-primary, $wedding-accent);
 }
 
-.action-icon-orange {
-  background-color: rgba($wedding-accent, 0.15);
-}
-
-.action-icon-green {
-  background-color: rgba(76, 175, 80, 0.15);
-}
-
-.action-icon-blue {
-  background-color: rgba(33, 150, 243, 0.15);
-}
-
-.action-icon-text {
-  font-size: 40rpx;
-}
-
-.action-label {
+.budget-percent {
   font-size: 24rpx;
-  color: $wedding-text;
-  font-weight: 500;
+  color: $wedding-text-light;
+  flex-shrink: 0;
+}
+
+.budget-loading {
+  padding: 24rpx 0;
+  text-align: center;
+}
+
+.budget-loading-text {
+  font-size: 24rpx;
+  color: #999;
 }
 
 // ── Bottom spacer ──────────────────────────────────────────
