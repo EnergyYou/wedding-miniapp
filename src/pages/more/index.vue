@@ -99,7 +99,15 @@ function handleToolTap(tool: string) {
     uni.switchTab({ url: '/pages/budget/index' })
     return
   }
-  uni.showToast({ title: '功能开发中', icon: 'none' })
+  const pageMap: Record<string, string> = {
+    collaboration: '/pages/collaboration/index',
+    reminders: '/pages/reminder/index',
+    guide: '/pages/guide/index',
+  }
+  const url = pageMap[tool]
+  if (url) {
+    uni.navigateTo({ url })
+  }
 }
 </script>
 

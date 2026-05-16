@@ -8,7 +8,12 @@
     { "path": "pages/items/index", "style": { "navigationBarTitleText": "物品清单" } },
     { "path": "pages/vendors/index", "style": { "navigationBarTitleText": "供应商" } },
     { "path": "pages/speeches/index", "style": { "navigationBarTitleText": "婚礼话术" } },
-    { "path": "pages/couple/index", "style": { "navigationBarTitleText": "情侣绑定" } }
+    { "path": "pages/couple/index", "style": { "navigationBarTitleText": "情侣绑定" } },
+    { "path": "pages/guide/index", "style": { "navigationBarTitleText": "备婚攻略" } },
+    { "path": "pages/guide/detail", "style": { "navigationBarTitleText": "攻略详情" } },
+    { "path": "pages/collaboration/index", "style": { "navigationBarTitleText": "双人协作" } },
+    { "path": "pages/reminder/index", "style": { "navigationBarTitleText": "提醒设置" } },
+    { "path": "pages/tasklist/index", "style": { "navigationBarTitleText": "任务列表" } }
   ],
   "tabBar": {
     "color": "#999999",

@@ -22,8 +22,11 @@ export interface TaskStats {
   pending: number
 }
 
-export function getTaskList(timelineId?: number): Promise<Task[]> {
-  const query = timelineId ? `?timelineId=${timelineId}` : ''
+export function getTaskList(timelineId?: number, assignee?: number): Promise<Task[]> {
+  const params: string[] = []
+  if (timelineId !== undefined) params.push(`timelineId=${timelineId}`)
+  if (assignee !== undefined) params.push(`assignee=${assignee}`)
+  const query = params.length ? `?${params.join('&')}` : ''
   return get<Task[]>(`/wx/task/list${query}`)
 }
 
@@ -42,6 +45,7 @@ export function createTask(data: {
   assignee?: number
   priority?: number
   deadline?: string
+  remindTime?: string
 }): Promise<void> {
   return post('/wx/task', data)
 }
@@ -53,8 +57,13 @@ export function updateTask(data: {
   assignee?: number
   priority?: number
   deadline?: string
+  remindTime?: string
 }): Promise<void> {
   return put('/wx/task', data)
+}
+
+export function getTasksWithReminders(): Promise<Task[]> {
+  return get<Task[]>('/wx/task/reminders')
 }
 
 export function updateTaskStatus(id: number, status: number): Promise<void> {
@@ -63,4 +72,8 @@ export function updateTaskStatus(id: number, status: number): Promise<void> {
 
 export function deleteTask(id: number): Promise<void> {
   return del(`/wx/task/${id}`)
+}
+
+export function updateTaskRemind(id: number, remindTime: string | null): Promise<void> {
+  return put(`/wx/task/${id}/remind`, { remindTime })
 }

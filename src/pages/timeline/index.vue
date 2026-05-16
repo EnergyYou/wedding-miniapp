@@ -25,8 +25,8 @@
         <!-- Left column: node + line -->
         <view class="timeline-left">
           <view :class="['timeline-node', stage.status]">
-            <text v-if="stage.status === 'completed'" class="node-check">&#10003;</text>
-            <text v-else-if="stage.status === 'active'" class="node-dot">&#9679;</text>
+            <text v-if="stage.status === 'completed'" class="node-check">{{ '✓' }}</text>
+            <text v-else-if="stage.status === 'active'" class="node-dot">{{ '●' }}</text>
           </view>
           <view
             v-if="stageIndex < stages.length - 1"
@@ -54,14 +54,14 @@
             >
               <!-- Checkbox -->
               <view :class="['task-checkbox', task.status]">
-                <text v-if="task.status === 'done'" class="checkbox-icon">&#10003;</text>
+                <text v-if="task.status === 'done'" class="checkbox-icon">{{ '✓' }}</text>
               </view>
 
               <!-- Task content -->
               <view class="task-content">
                 <view class="task-title-row">
                   <text :class="['task-title', task.status]">{{ task.name }}</text>
-                  <text v-if="task.priority" class="priority-star">&#9733;</text>
+                  <text v-if="task.priority" class="priority-star">{{ '★' }}</text>
                 </view>
                 <view class="task-meta">
                   <text :class="['assignee-badge', task.assignee]">{{ task.assigneeLabel }}</text>
@@ -189,10 +189,43 @@
           </picker>
         </view>
 
+        <!-- Remind Time -->
+        <view class="form-group">
+          <text class="form-label">提醒时间</text>
+          <picker mode="date" @change="onRemindDateChange">
+            <view class="form-input form-date">{{ formData.remindDate || '选择提醒日期' }}</view>
+          </picker>
+          <picker v-if="formData.remindDate" mode="time" @change="onRemindTimeChange" style="margin-top: 12rpx;">
+            <view class="form-input form-date">{{ formData.remindTimeValue || '选择提醒时间' }}</view>
+          </picker>
+        </view>
+
         <!-- Actions -->
         <view class="form-actions">
           <button class="form-btn form-btn-cancel" @tap="closePopup">取消</button>
           <button class="form-btn form-btn-submit" @tap="handleSubmit">确定</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- Custom Confirm -->
+    <view v-if="confirmVisible" class="confirm-mask" @tap="confirmVisible = false">
+      <view class="confirm-box" @tap.stop>
+        <text class="confirm-title">确认操作</text>
+        <view class="confirm-body">
+          <text class="confirm-text">确定要将</text>
+          <text class="confirm-task-name">{{ confirmTaskName }}</text>
+          <text class="confirm-text">{{ confirmPrefix }}</text>
+          <text :class="['confirm-status', confirmStatusClass]">{{ confirmStatusLabel }}</text>
+          <text class="confirm-text">吗？</text>
+        </view>
+        <view class="confirm-buttons">
+          <view class="confirm-btn confirm-btn-cancel" @tap="confirmVisible = false">
+            <text class="confirm-btn-text">取消</text>
+          </view>
+          <view class="confirm-btn confirm-btn-ok" @tap="doConfirm">
+            <text class="confirm-btn-text-ok">确定</text>
+          </view>
         </view>
       </view>
     </view>
@@ -321,6 +354,8 @@ interface FormData {
   assignee: number
   priority: number
   deadline: string
+  remindDate: string
+  remindTimeValue: string
 }
 
 function createEmptyForm(): FormData {
@@ -330,6 +365,8 @@ function createEmptyForm(): FormData {
     assignee: 0,
     priority: 2,
     deadline: '',
+    remindDate: '',
+    remindTimeValue: '',
   }
 }
 
@@ -417,18 +454,51 @@ function toggleStage(stage: Stage): void {
   expandedStageId.value = expandedStageId.value === stage.id ? -1 : stage.id
 }
 
-async function toggleTask(stage: Stage, task: Task): Promise<void> {
-  const action = task.status === 'done' ? '取消完成' : '标记为已完成'
-  const { confirm } = await uni.showModal({
-    title: '确认操作',
-    content: `确定要${action}"${task.name}"吗？`,
-  })
-  if (!confirm) return
+// ---------- Custom Confirm ----------
+const confirmVisible = ref(false)
+const confirmTaskName = ref('')
+const confirmStatusLabel = ref('')
+const confirmStatusClass = ref('')
+const confirmPrefix = ref('')
+const confirmNewStatus = ref(0)
+const confirmTaskId = ref(0)
 
-  const newApiStatus = task.status === 'done' ? 0 : 2
+function toggleTask(stage: Stage, task: Task): void {
+  let newApiStatus: number
+  let label: string
+  let cls: string
+  let prefix: string
 
+  if (task.status === 'done') {
+    newApiStatus = 0
+    label = '待办'
+    cls = 'status-pending'
+    prefix = '重新设为'
+  } else if (task.status === 'pending') {
+    newApiStatus = 1
+    label = '进行中'
+    cls = 'status-active'
+    prefix = '标记为'
+  } else {
+    newApiStatus = 2
+    label = '已完成'
+    cls = 'status-done'
+    prefix = '标记为'
+  }
+
+  confirmTaskName.value = task.name
+  confirmStatusLabel.value = label
+  confirmStatusClass.value = cls
+  confirmPrefix.value = prefix
+  confirmNewStatus.value = newApiStatus
+  confirmTaskId.value = task.id
+  confirmVisible.value = true
+}
+
+async function doConfirm(): Promise<void> {
+  confirmVisible.value = false
   try {
-    await updateTaskStatus(task.id, newApiStatus)
+    await updateTaskStatus(confirmTaskId.value, confirmNewStatus.value)
     await loadData()
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '操作失败'
@@ -449,6 +519,17 @@ function onDateChange(e: { detail: { value: string } }): void {
   formData.value.deadline = e.detail.value
 }
 
+function onRemindDateChange(e: { detail: { value: string } }): void {
+  formData.value.remindDate = e.detail.value
+  if (!formData.value.remindTimeValue) {
+    formData.value.remindTimeValue = '09:00'
+  }
+}
+
+function onRemindTimeChange(e: { detail: { value: string } }): void {
+  formData.value.remindTimeValue = e.detail.value
+}
+
 async function handleSubmit(): Promise<void> {
   if (!formData.value.title.trim()) {
     uni.showToast({ title: '请输入任务名称', icon: 'none' })
@@ -460,12 +541,17 @@ async function handleSubmit(): Promise<void> {
   }
 
   try {
+    const remindTime = formData.value.remindDate && formData.value.remindTimeValue
+      ? `${formData.value.remindDate} ${formData.value.remindTimeValue}:00`
+      : undefined
+
     await createTask({
       timelineId: formData.value.timelineId,
       title: formData.value.title.trim(),
       assignee: formData.value.assignee,
       priority: formData.value.priority,
       deadline: formData.value.deadline || undefined,
+      remindTime,
     })
     uni.showToast({ title: '添加成功', icon: 'success' })
     showPopup.value = false
@@ -479,10 +565,14 @@ async function handleSubmit(): Promise<void> {
 // ---------- Lifecycle ----------
 
 let pendingStageId: number | null = null
+let autoAdd = false
 
 onLoad((query) => {
   if (query?.stageId) {
     pendingStageId = Number(query.stageId)
+  }
+  if (query?.autoAdd === 'true') {
+    autoAdd = true
   }
 })
 
@@ -494,6 +584,10 @@ onMounted(() => {
         expandedStageId.value = stage.id
       }
       pendingStageId = null
+    }
+    if (autoAdd) {
+      onFabTap()
+      autoAdd = false
     }
   })
 })
@@ -1059,6 +1153,116 @@ onMounted(() => {
 .stage-chip.active {
   background: $wedding-primary;
   color: #fff;
+}
+
+// ── Custom Confirm Dialog ──────────────────────────────────
+.confirm-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-box {
+  width: 600rpx;
+  background: #fff;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx 36rpx;
+}
+
+.confirm-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: $wedding-text;
+  display: block;
+  text-align: center;
+  margin-bottom: 36rpx;
+}
+
+.confirm-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 44rpx;
+  line-height: 1.8;
+}
+
+.confirm-text {
+  font-size: 30rpx;
+  color: #333;
+}
+
+.confirm-task-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: $wedding-text;
+  margin: 0 4rpx;
+  max-width: 300rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.confirm-status {
+  font-size: 26rpx;
+  font-weight: 700;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  margin: 0 4rpx;
+}
+
+.confirm-status.status-pending {
+  background: #F5F5F5;
+  color: #999;
+}
+
+.confirm-status.status-active {
+  background: #E3F2FD;
+  color: #2196F3;
+}
+
+.confirm-status.status-done {
+  background: #E8F5E9;
+  color: #4CAF50;
+}
+
+.confirm-buttons {
+  display: flex;
+  gap: 20rpx;
+}
+
+.confirm-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border-radius: 40rpx;
+}
+
+.confirm-btn-cancel {
+  background: #F0F0F0;
+}
+
+.confirm-btn-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.confirm-btn-ok {
+  background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+}
+
+.confirm-btn-text-ok {
+  font-size: 28rpx;
+  color: #fff;
+  font-weight: 600;
 }
 
 </style>

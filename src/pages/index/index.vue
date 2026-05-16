@@ -95,7 +95,10 @@
           <view class="section">
             <view class="section-header">
               <text class="section-title">当前任务</text>
-              <text class="section-link" @tap="goToTimeline()">查看全部 &gt;</text>
+              <view class="section-actions">
+                <text class="section-link add-task-btn" @tap="goToAddTask">{{ '+' }}</text>
+                <text class="section-link" @tap="goToTaskList()">查看全部 &gt;</text>
+              </view>
             </view>
             <view v-if="currentTasks.length > 0" class="task-list">
               <view
@@ -104,19 +107,20 @@
                 class="task-card"
               >
                 <view class="task-left">
-                  <view :class="['task-checkbox', { 'task-checkbox-checked': task.completed }]" @tap="toggleTask(task)">
-                    <text v-if="task.completed" class="check-mark">\u2713</text>
+                  <view :class="['task-checkbox', task.status === 2 ? 'task-checkbox-checked' : task.status === 1 ? 'task-checkbox-progress' : 'task-checkbox-pending']" @tap="toggleTask(task)">
+                    <text v-if="task.status === 2" class="check-mark">{{ '\u2713' }}</text>
                   </view>
                 </view>
                 <view class="task-body">
-                  <text :class="['task-name', { 'task-name-done': task.completed }]">{{ task.name }}</text>
+                  <text :class="['task-name', { 'task-name-done': task.status === 2 }]">{{ task.name }}</text>
                   <view class="task-meta">
                     <text v-if="task.stageName" class="task-stage-tag">{{ task.stageName }}</text>
                     <view :class="['assignee-badge', `assignee-${task.assignee}`]">
                       <text class="assignee-text">{{ assigneeLabel(task.assignee) }}</text>
                     </view>
                     <text class="task-deadline">{{ task.deadline }}</text>
-                    <text v-if="task.priority" class="task-priority">&#x2B50;</text>
+                    <text v-if="task.status === 1" class="status-in-progress">{{ statusLabel(task.status) }}</text>
+                    <text v-if="task.priority" class="task-priority">{{ '\u2b50' }}</text>
                   </view>
                 </view>
               </view>
@@ -164,6 +168,28 @@
         </view>
       </scroll-view>
     </view>
+
+    <!-- 自定义确认弹窗 -->
+    <view v-if="confirmVisible" class="confirm-mask" @tap="confirmVisible = false">
+      <view class="confirm-box" @tap.stop>
+        <text class="confirm-title">确认操作</text>
+        <view class="confirm-body">
+          <text class="confirm-text">确定要将</text>
+          <text class="confirm-task-name">{{ confirmTaskName }}</text>
+          <text class="confirm-text">{{ confirmPrefix }}</text>
+          <text :class="['confirm-status', confirmStatusClass]">{{ confirmStatusLabel }}</text>
+          <text class="confirm-text">吗？</text>
+        </view>
+        <view class="confirm-buttons">
+          <view class="confirm-btn confirm-btn-cancel" @tap="confirmVisible = false">
+            <text class="confirm-btn-text">取消</text>
+          </view>
+          <view class="confirm-btn confirm-btn-ok" @tap="doConfirm">
+            <text class="confirm-btn-text-ok">确定</text>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -186,6 +212,7 @@ interface Task {
   readonly deadline: string
   readonly priority: boolean
   completed: boolean
+  readonly status: number
 }
 
 interface TimelineStage {
@@ -223,6 +250,10 @@ onShow(async () => {
     } catch {
       // 未绑定，忽略
     }
+  }
+  // 已绑定时刷新仪表盘数据
+  if (coupleStore.isBound) {
+    await loadDashboardData()
   }
 })
 
@@ -276,6 +307,14 @@ function goToTimeline(stageId?: number) {
     ? `/pages/timeline/index?stageId=${stageId}`
     : '/pages/timeline/index'
   uni.navigateTo({ url })
+}
+
+function goToTaskList() {
+  uni.navigateTo({ url: '/pages/tasklist/index' })
+}
+
+function goToAddTask() {
+  uni.navigateTo({ url: '/pages/timeline/index?autoAdd=true' })
 }
 
 function goToBudget() {
@@ -389,6 +428,7 @@ function buildTimelineStages(timelines: Timeline[], tasks: ApiTask[]) {
 
 // ── Task list ──────────────────────────────────────────────
 const currentTasks = ref<Task[]>([])
+const allTasksApi = ref<ApiTask[]>([])
 
 const assigneeMap: Record<number, 'groom' | 'bride' | 'both'> = { 0: 'both', 1: 'groom', 2: 'bride' }
 
@@ -401,8 +441,10 @@ function formatDeadline(dateStr: string | null): string {
 function buildTaskList(tasks: ApiTask[]) {
   if (!tasks || tasks.length === 0) {
     currentTasks.value = []
+    allTasksApi.value = []
     return
   }
+  allTasksApi.value = tasks
   // Show only pending/in-progress tasks (limit 5)
   const pending = tasks.filter((t) => t.status !== 2).slice(0, 5)
   currentTasks.value = pending.map((t) => ({
@@ -413,21 +455,58 @@ function buildTaskList(tasks: ApiTask[]) {
     deadline: formatDeadline(t.deadline),
     priority: t.priority === 1,
     completed: t.status === 2,
+    status: t.status,
   }))
 }
 
-async function toggleTask(task: Task) {
-  const action = task.completed ? '取消完成' : '标记为已完成'
-  const { confirm } = await uni.showModal({
-    title: '确认操作',
-    content: `确定要${action}"${task.name}"吗？`,
-  })
-  if (!confirm) return
+// ── Custom Confirm Dialog ──────────────────────────────────
+const confirmVisible = ref(false)
+const confirmTaskName = ref('')
+const confirmStatusLabel = ref('')
+const confirmStatusClass = ref('')
+const confirmPrefix = ref('')
+const confirmNewStatus = ref(0)
+const confirmTaskId = ref(0)
 
-  const newStatus = task.completed ? 0 : 2
+function toggleTask(task: Task) {
+  let newStatus: number
+  let label: string
+  let cls: string
+  let prefix: string
+
+  if (task.completed) {
+    newStatus = 0
+    label = '待办'
+    cls = 'status-pending'
+    prefix = '重新设为'
+  } else {
+    const apiTask = allTasksApi.value.find(t => t.id === task.id)
+    if (apiTask && apiTask.status === 0) {
+      newStatus = 1
+      label = '进行中'
+      cls = 'status-active'
+      prefix = '标记为'
+    } else {
+      newStatus = 2
+      label = '已完成'
+      cls = 'status-done'
+      prefix = '标记为'
+    }
+  }
+
+  confirmTaskName.value = task.name
+  confirmStatusLabel.value = label
+  confirmStatusClass.value = cls
+  confirmPrefix.value = prefix
+  confirmNewStatus.value = newStatus
+  confirmTaskId.value = task.id
+  confirmVisible.value = true
+}
+
+async function doConfirm() {
+  confirmVisible.value = false
   try {
-    await updateTaskStatus(task.id, newStatus)
-    // Refresh all data to keep consistency
+    await updateTaskStatus(confirmTaskId.value, confirmNewStatus.value)
     await loadDashboardData()
   } catch {
     // Error already shown by request interceptor
@@ -437,6 +516,12 @@ async function toggleTask(task: Task) {
 function assigneeLabel(assignee: Task['assignee']): string {
   const map: Record<Task['assignee'], string> = { groom: '郎', bride: '娘', both: '共' }
   return map[assignee]
+}
+
+function statusLabel(status: number): string {
+  if (status === 2) return '已完成'
+  if (status === 1) return '进行中'
+  return '待办'
 }
 </script>
 
@@ -721,6 +806,24 @@ function assigneeLabel(assignee: Task['assignee']): string {
   color: $wedding-text-light;
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.add-task-btn {
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 40rpx;
+  text-align: center;
+  background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
 // ── Timeline chips ─────────────────────────────────────────
 .timeline-chips {
   white-space: nowrap;
@@ -802,16 +905,34 @@ function assigneeLabel(assignee: Task['assignee']): string {
   width: 40rpx;
   height: 40rpx;
   border-radius: 20rpx;
-  border: 3rpx solid $wedding-primary;
+  border: 3rpx solid #ccc;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: #ffffff;
 }
 
+.task-checkbox-pending {
+  border-color: #ccc;
+  background-color: #ffffff;
+}
+
 .task-checkbox-checked {
   background-color: #4caf50;
   border-color: #4caf50;
+}
+
+.task-checkbox-progress {
+  border-color: #2196F3;
+  background-color: #E3F2FD;
+}
+
+.status-in-progress {
+  font-size: 20rpx;
+  color: #2196F3;
+  background: #E3F2FD;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
 }
 
 .check-mark {
@@ -964,5 +1085,115 @@ function assigneeLabel(assignee: Task['assignee']): string {
 // ── Bottom spacer ──────────────────────────────────────────
 .bottom-spacer {
   height: calc(32rpx + env(safe-area-inset-bottom));
+}
+
+// ── Custom Confirm Dialog ──────────────────────────────────
+.confirm-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-box {
+  width: 600rpx;
+  background: #fff;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx 36rpx;
+}
+
+.confirm-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: $wedding-text;
+  display: block;
+  text-align: center;
+  margin-bottom: 36rpx;
+}
+
+.confirm-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 44rpx;
+  line-height: 1.8;
+}
+
+.confirm-text {
+  font-size: 30rpx;
+  color: #333;
+}
+
+.confirm-task-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: $wedding-text;
+  margin: 0 4rpx;
+  max-width: 300rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.confirm-status {
+  font-size: 26rpx;
+  font-weight: 700;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  margin: 0 4rpx;
+}
+
+.confirm-status.status-pending {
+  background: #F5F5F5;
+  color: #999;
+}
+
+.confirm-status.status-active {
+  background: #E3F2FD;
+  color: #2196F3;
+}
+
+.confirm-status.status-done {
+  background: #E8F5E9;
+  color: #4CAF50;
+}
+
+.confirm-buttons {
+  display: flex;
+  gap: 20rpx;
+}
+
+.confirm-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border-radius: 40rpx;
+}
+
+.confirm-btn-cancel {
+  background: #F0F0F0;
+}
+
+.confirm-btn-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.confirm-btn-ok {
+  background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+}
+
+.confirm-btn-text-ok {
+  font-size: 28rpx;
+  color: #fff;
+  font-weight: 600;
 }
 </style>
