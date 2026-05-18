@@ -1,0 +1,102 @@
+[
+  {
+    "id": "groom-1",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features with big eyes nose and mouth, neat black hairstyle, wearing classic black tuxedo with white shirt and bow tie, holding wedding bouquet, formal wedding attire, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "groom-1-tuxedo.png"
+  },
+  {
+    "id": "groom-2",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features, stylish side-part hairstyle, wearing elegant navy blue suit with silver boutonniere, formal wedding attire, standing pose with confident smile, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "groom-2-navy.png"
+  },
+  {
+    "id": "groom-3",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features, traditional Chinese hairstyle, wearing red and gold Tang suit traditional Chinese wedding attire, elegant formal pose, flat design with clean bold outlines, vibrant red and gold colors, transparent background, 512x512 app avatar",
+    "image": "groom-3-tang.png"
+  },
+  {
+    "id": "groom-4",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features, modern spiky hairstyle, wearing white formal suit with gold trim, luxurious wedding attire, elegant standing pose, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "groom-4-white.png"
+  },
+  {
+    "id": "groom-5",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features, neat short haircut, wearing traditional Chinese dragon robe red ceremonial attire, ornate patterns, formal wedding pose, flat design with clean bold outlines, vibrant red gold colors, transparent background, 512x512 app avatar",
+    "image": "groom-5-dragon.png"
+  },
+  {
+    "id": "groom-6",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features, wavy hairstyle, wearing gray three-piece suit with vest and tie, vintage formal wedding attire, gentle pose, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "groom-6-gray.png"
+  },
+  {
+    "id": "groom-7",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features, slicked back hairstyle, wearing royal blue formal suit with crown, prince-themed wedding attire, majestic pose, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "groom-7-prince.png"
+  },
+  {
+    "id": "groom-8",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features, textured crop hairstyle, wearing burgundy suit with matching bow tie, modern formal wedding attire, stylish pose, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "groom-8-burgundy.png"
+  },
+  {
+    "id": "groom-9",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features, messy curly hairstyle, wearing green formal suit with floral boutonniere, garden wedding theme, relaxed elegant pose, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "groom-9-garden.png"
+  },
+  {
+    "id": "groom-10",
+    "prompt": "Flat cartoon style groom avatar, full body chibi character with big head and small body, clear facial features, undercut hairstyle, wearing black tailcoat suit with top hat, classic formal wedding attire, elegant pose, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "groom-10-topcoat.png"
+  },
+  {
+    "id": "bride-1",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features with big eyes and sweet smile, long flowing wavy hairstyle with veil, wearing classic white wedding ball gown with long train, holding bridal bouquet, formal wedding attire, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "bride-1-gown.png"
+  },
+  {
+    "id": "bride-2",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features, elegant updo hairstyle with tiara, wearing elegant mermaid style white wedding dress with lace details, formal wedding attire, graceful pose, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "bride-2-mermaid.png"
+  },
+  {
+    "id": "bride-3",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features, traditional Chinese bridal hairstyle with phoenix crown, wearing red Qipao wedding dress with golden dragon phoenix embroidery, traditional Chinese wedding attire, formal pose, flat design with clean bold outlines, vibrant red gold colors, transparent background, 512x512 app avatar",
+    "image": "bride-3-qipao.png"
+  },
+  {
+    "id": "bride-4",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features, braided princess hairstyle with flower crown, wearing fairy tale princess ball gown with sparkling details and cape, holding magic wand, fantasy wedding theme, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "bride-4-princess.png"
+  },
+  {
+    "id": "bride-5",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features, long straight hairstyle with side bangs, wearing traditional Chinese XiuHe suit red and gold ceremonial dress, ornate patterns, formal Chinese wedding attire, elegant pose, flat design with clean bold outlines, vibrant red gold colors, transparent background, 512x512 app avatar",
+    "image": "bride-5-xiuhe.png"
+  },
+  {
+    "id": "bride-6",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features, vintage curled hairstyle with pearl headpiece, wearing Victorian era white lace wedding dress with parasol, classic formal wedding attire, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "bride-6-victorian.png"
+  },
+  {
+    "id": "bride-7",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features, high bun hairstyle with jeweled hairpins, wearing elegant evening gown in champagne gold color, luxurious formal attire, confident elegant pose, flat design with clean bold outlines, vibrant gold colors, transparent background, 512x512 app avatar",
+    "image": "bride-7-gala.png"
+  },
+  {
+    "id": "bride-8",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features, loose romantic hairstyle with roses, wearing A-line wedding dress with floral embroidery and flower crown, garden wedding theme, holding roses, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "bride-8-garden.png"
+  },
+  {
+    "id": "bride-9",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features, braided crown hairstyle with crystal accessories, wearing modern minimalist sleek white wedding dress with cape, contemporary formal wedding attire, stylish pose, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "bride-9-modern.png"
+  },
+  {
+    "id": "bride-10",
+    "prompt": "Flat cartoon style bride avatar, full body chibi character with big head and small body, clear facial features, dramatic wavy hairstyle with golden crown, wearing haute couture designer wedding dress with bold dramatic silhouette and long train, high fashion wedding attire, majestic pose, flat design with clean bold outlines, vibrant solid colors, transparent background, 512x512 app avatar",
+    "image": "bride-10-couture.png"
+  }
+]

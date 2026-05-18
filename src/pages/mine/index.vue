@@ -156,10 +156,10 @@
               v-for="i in 10"
               :key="'groom_' + i"
               class="avatar-grid-item"
-              :class="{ selected: profileForm.avatar === ('/static/avatars/groom_' + i + '.webp') }"
-              @tap="selectAvatar('/static/avatars/groom_' + i + '.webp')"
+              :class="{ selected: profileForm.avatar === ('/static/avatars/groom_' + i + '.png') }"
+              @tap="selectAvatar('/static/avatars/groom_' + i + '.png')"
             >
-              <image class="avatar-grid-img" :src="'/static/avatars/groom_' + i + '.webp'" mode="aspectFill" />
+              <image class="avatar-grid-img" :src="'/static/avatars/groom_' + i + '.png'" mode="aspectFill" />
             </view>
           </view>
         </view>
@@ -172,10 +172,10 @@
               v-for="i in 10"
               :key="'bride_' + i"
               class="avatar-grid-item"
-              :class="{ selected: profileForm.avatar === ('/static/avatars/bride_' + i + '.webp') }"
-              @tap="selectAvatar('/static/avatars/bride_' + i + '.webp')"
+              :class="{ selected: profileForm.avatar === ('/static/avatars/bride_' + i + '.png') }"
+              @tap="selectAvatar('/static/avatars/bride_' + i + '.png')"
             >
-              <image class="avatar-grid-img" :src="'/static/avatars/bride_' + i + '.webp'" mode="aspectFill" />
+              <image class="avatar-grid-img" :src="'/static/avatars/bride_' + i + '.png'" mode="aspectFill" />
             </view>
           </view>
         </view>
