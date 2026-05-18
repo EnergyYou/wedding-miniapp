@@ -17,27 +17,37 @@
       <view
         v-for="task in filteredTasks"
         :key="task.id"
-        class="task-card"
-        @tap="toggleTask(task)"
+        class="swipe-wrap"
+        @touchstart="onSwipeStart"
+        @touchmove.stop="onSwipeMove"
+        @touchend="(e: any) => onSwipeEnd(e, task.id)"
       >
-        <view :class="['task-checkbox', task.status === 2 ? 'checked' : task.status === 1 ? 'in-progress' : 'pending']">
-          <text v-if="task.status === 2" class="check-icon">{{ '✓' }}</text>
+        <view
+          class="task-card"
+          @tap="handleTaskTap(task)"
+        >
+          <view :class="['task-checkbox', task.status === 2 ? 'checked' : task.status === 1 ? 'in-progress' : 'pending']">
+            <text v-if="task.status === 2" class="check-icon">{{ '✓' }}</text>
+          </view>
+          <view class="task-body">
+            <view class="task-title-row">
+              <text :class="['task-title', task.status === 2 ? 'done' : '']">{{ task.title }}</text>
+              <text v-if="task.priority === 1" class="priority-star">{{ '★' }}</text>
+            </view>
+            <view class="task-meta">
+              <text :class="['assignee-badge', `assignee-${getAssigneeKey(task.assignee)}`]">
+                {{ getAssigneeLabel(task.assignee) }}
+              </text>
+              <text v-if="task.deadline" class="meta-text">{{ formatDate(task.deadline) }}</text>
+              <text :class="['status-tag', task.status === 2 ? 'status-done' : task.status === 1 ? 'status-active' : 'status-pending']">{{ getStatusText(task.status) }}</text>
+            </view>
+            <view v-if="task.remindTime" class="task-meta">
+              <text class="remind-tag">{{ '🔔' }} {{ formatDateTime(task.remindTime) }}</text>
+            </view>
+          </view>
         </view>
-        <view class="task-body">
-          <view class="task-title-row">
-            <text :class="['task-title', task.status === 2 ? 'done' : '']">{{ task.title }}</text>
-            <text v-if="task.priority === 1" class="priority-star">{{ '★' }}</text>
-          </view>
-          <view class="task-meta">
-            <text :class="['assignee-badge', `assignee-${getAssigneeKey(task.assignee)}`]">
-              {{ getAssigneeLabel(task.assignee) }}
-            </text>
-            <text v-if="task.deadline" class="meta-text">{{ formatDate(task.deadline) }}</text>
-            <text :class="['status-tag', task.status === 2 ? 'status-done' : task.status === 1 ? 'status-active' : 'status-pending']">{{ getStatusText(task.status) }}</text>
-          </view>
-          <view v-if="task.remindTime" class="task-meta">
-            <text class="remind-tag">{{ '🔔' }} {{ formatDateTime(task.remindTime) }}</text>
-          </view>
+        <view :class="['swipe-del', { show: swipedTaskId === task.id }]" @tap.stop="confirmDelete(task)">
+          <text class="swipe-del-text">{{ '删除' }}</text>
         </view>
       </view>
     </view>
@@ -50,7 +60,12 @@
     <view v-if="confirmVisible" class="confirm-mask" @tap="confirmVisible = false">
       <view class="confirm-box" @tap.stop>
         <text class="confirm-title">确认操作</text>
-        <view class="confirm-body">
+        <view v-if="confirmIsDelete" class="confirm-body">
+          <text class="confirm-text">确定要删除</text>
+          <text class="confirm-task-name">{{ confirmTaskName }}</text>
+          <text class="confirm-text">吗？删除后不可恢复。</text>
+        </view>
+        <view v-else class="confirm-body">
           <text class="confirm-text">确定要将</text>
           <text class="confirm-task-name">{{ confirmTaskName }}</text>
           <text class="confirm-text">{{ confirmPrefix }}</text>
@@ -61,8 +76,8 @@
           <view class="confirm-btn confirm-btn-cancel" @tap="confirmVisible = false">
             <text class="confirm-btn-text">取消</text>
           </view>
-          <view class="confirm-btn confirm-btn-ok" @tap="doConfirm">
-            <text class="confirm-btn-text-ok">确定</text>
+          <view :class="['confirm-btn', confirmIsDelete ? 'confirm-btn-danger' : 'confirm-btn-ok']" @tap="doConfirm">
+            <text class="confirm-btn-text-ok">{{ confirmIsDelete ? '删除' : '确定' }}</text>
           </view>
         </view>
       </view>
@@ -73,7 +88,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getTaskList, updateTaskStatus, type Task } from '@/api/task'
+import { getTaskList, updateTaskStatus, deleteTask, type Task } from '@/api/task'
 
 const tasks = ref<Task[]>([])
 const currentFilter = ref(-1)
@@ -127,43 +142,95 @@ const confirmStatusClass = ref('')
 const confirmPrefix = ref('')
 const confirmNewStatus = ref(0)
 const confirmTaskId = ref(0)
+const confirmIsDelete = ref(false)
+
+function confirmDelete(task: Task) {
+  confirmTaskName.value = task.title
+  confirmIsDelete.value = true
+  confirmTaskId.value = task.id
+  confirmVisible.value = true
+}
+
+// ---------- Swipe to delete ----------
+const swipedTaskId = ref(-1)
+let swipeStartX = 0
+let wasSwipe = false
+
+function onSwipeStart(e: any) {
+  swipeStartX = e.touches[0]?.clientX ?? 0
+  wasSwipe = false
+}
+
+function onSwipeMove() {
+  // prevent page back gesture interference
+}
+
+function onSwipeEnd(e: any, taskId: number) {
+  const endX = e.changedTouches[0]?.clientX ?? 0
+  const delta = endX - swipeStartX
+  if (delta < -40) {
+    swipedTaskId.value = taskId
+    wasSwipe = true
+  } else if (delta > 40) {
+    if (swipedTaskId.value === taskId) {
+      swipedTaskId.value = -1
+    }
+    wasSwipe = true
+  }
+}
+
+function handleTaskTap(task: Task) {
+  if (wasSwipe) {
+    wasSwipe = false
+    return
+  }
+  if (swipedTaskId.value !== -1) {
+    swipedTaskId.value = -1
+    return
+  }
+  toggleTask(task)
+}
 
 function toggleTask(task: Task) {
+  // 已完成任务：只能删除
+  if (task.status === 2) {
+    confirmDelete(task)
+    return
+  }
+
+  // 待办→进行中 或 进行中→已完成
   let newStatus: number
   let label: string
   let cls: string
-  let prefix: string
 
-  if (task.status === 2) {
-    newStatus = 0
-    label = '待办'
-    cls = 'status-pending'
-    prefix = '重新设为'
-  } else if (task.status === 0) {
+  if (task.status === 0) {
     newStatus = 1
     label = '进行中'
     cls = 'status-active'
-    prefix = '标记为'
   } else {
     newStatus = 2
     label = '已完成'
     cls = 'status-done'
-    prefix = '标记为'
   }
 
   confirmTaskName.value = task.title
   confirmStatusLabel.value = label
   confirmStatusClass.value = cls
-  confirmPrefix.value = prefix
+  confirmPrefix.value = '标记为'
   confirmNewStatus.value = newStatus
   confirmTaskId.value = task.id
+  confirmIsDelete.value = false
   confirmVisible.value = true
 }
 
 async function doConfirm() {
   confirmVisible.value = false
   try {
-    await updateTaskStatus(confirmTaskId.value, confirmNewStatus.value)
+    if (confirmIsDelete.value) {
+      await deleteTask(confirmTaskId.value)
+    } else {
+      await updateTaskStatus(confirmTaskId.value, confirmNewStatus.value)
+    }
     await loadData()
   } catch {
     // error shown by interceptor
@@ -222,6 +289,8 @@ onShow(() => loadData())
   border-radius: 24rpx;
   padding: 28rpx;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  flex: 1;
+  min-width: 0;
 }
 
 .task-checkbox {
@@ -348,6 +417,34 @@ onShow(() => loadData())
   padding: 120rpx 0;
 }
 
+// ---------- Swipe to delete ----------
+.swipe-wrap {
+  display: flex;
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.swipe-del {
+  width: 0;
+  background: #e74c3c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.25s ease;
+  flex-shrink: 0;
+}
+
+.swipe-del.show {
+  width: 140rpx;
+}
+
+.swipe-del-text {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
 .empty-text {
   font-size: 28rpx;
   color: #999;
@@ -455,6 +552,10 @@ onShow(() => loadData())
 
 .confirm-btn-ok {
   background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+}
+
+.confirm-btn-danger {
+  background: #e74c3c;
 }
 
 .confirm-btn-text-ok {

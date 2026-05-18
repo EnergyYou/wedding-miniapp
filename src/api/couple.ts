@@ -1,4 +1,4 @@
-import { get, post } from './request'
+import { get, post, del } from './request'
 
 export function getCoupleInfo() {
   return get<{ coupleId: number; weddingDate: string; partnerName: string; inviteCode: string; status: number }>('/wx/couple/info')
@@ -14,4 +14,8 @@ export function bindByInviteCode(inviteCode: string) {
 
 export function updateWeddingDate(weddingDate: string) {
   return post('/wx/couple/wedding-date', { weddingDate })
+}
+
+export function unbindCouple() {
+  return del('/wx/couple/unbind')
 }

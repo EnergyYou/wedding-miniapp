@@ -211,6 +211,12 @@
             </view>
           </view>
         </view>
+        <view class="unbind-area">
+          <view class="unbind-btn" @tap="handleUnbind">
+            <text class="unbind-text">解除绑定</text>
+          </view>
+          <text class="unbind-hint">每人最多只能解绑一次</text>
+        </view>
       </view>
     </view>
 
@@ -299,7 +305,7 @@ import { useUserStore } from '@/store/user'
 import { useCoupleStore } from '@/store/couple'
 import { logout } from '@/api/user'
 import { getProfile, getPartnerProfile, updateProfile } from '@/api/profile'
-import { getCoupleInfo, updateWeddingDate } from '@/api/couple'
+import { getCoupleInfo, updateWeddingDate, unbindCouple } from '@/api/couple'
 import { silentLogin } from '@/utils/auth'
 import { Solar } from 'lunar-javascript'
 
@@ -571,6 +577,27 @@ async function handleConfirmDate() {
 
 function handleGoCouple() {
   uni.navigateTo({ url: '/pages/couple/index' })
+}
+
+async function handleUnbind() {
+  const { confirm } = await uni.showModal({
+    title: '确认解绑',
+    content: '解绑后双方将解除情侣关系，且每人最多只能解绑一次，确定要解绑吗？',
+  })
+  if (!confirm) return
+
+  try {
+    uni.showLoading({ title: '解绑中...' })
+    await unbindCouple()
+    coupleStore.clearCouple()
+    showPartnerInfo.value = false
+    uni.showToast({ title: '已解除绑定', icon: 'success' })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '解绑失败'
+    uni.showToast({ title: msg, icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
 }
 
 function handleAbout() {
@@ -1177,5 +1204,33 @@ async function handleLogout() {
 
 .date-ji {
   color: #f44336;
+}
+
+/* Unbind */
+.unbind-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.unbind-btn {
+  padding: 16rpx 48rpx;
+  border-radius: 32rpx;
+  background: #FFF5F5;
+}
+
+.unbind-text {
+  font-size: 26rpx;
+  color: #e74c3c;
+  font-weight: 500;
+}
+
+.unbind-hint {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 12rpx;
 }
 </style>

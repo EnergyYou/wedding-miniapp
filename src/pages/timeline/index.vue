@@ -49,28 +49,38 @@
             <view
               v-for="task in stage.tasks"
               :key="task.id"
-              :class="['task-card', task.status, 'assignee-' + task.assignee]"
-              @tap="toggleTask(stage, task)"
+              class="swipe-wrap"
+              @touchstart="onSwipeStart"
+              @touchmove.stop="onSwipeMove"
+              @touchend="(e: any) => onSwipeEnd(e, task.id)"
             >
-              <!-- Checkbox -->
-              <view :class="['task-checkbox', task.status]">
-                <text v-if="task.status === 'done'" class="checkbox-icon">{{ '✓' }}</text>
-              </view>
+              <view
+                :class="['task-card', task.status, 'assignee-' + task.assignee]"
+                @tap="handleTaskTap(stage, task)"
+              >
+                <!-- Checkbox -->
+                <view :class="['task-checkbox', task.status]">
+                  <text v-if="task.status === 'done'" class="checkbox-icon">{{ '✓' }}</text>
+                </view>
 
-              <!-- Task content -->
-              <view class="task-content">
-                <view class="task-title-row">
-                  <text :class="['task-title', task.status]">{{ task.name }}</text>
-                  <text v-if="task.priority" class="priority-star">{{ '★' }}</text>
+                <!-- Task content -->
+                <view class="task-content">
+                  <view class="task-title-row">
+                    <text :class="['task-title', task.status]">{{ task.name }}</text>
+                    <text v-if="task.priority" class="priority-star">{{ '★' }}</text>
+                  </view>
+                  <view class="task-meta">
+                    <text :class="['assignee-badge', task.assignee]">{{ task.assigneeLabel }}</text>
+                    <text :class="['status-badge', task.status]">
+                      <text v-if="task.status === 'in-progress'" class="in-progress-dot"></text>
+                      {{ task.statusText }}
+                    </text>
+                    <text v-if="task.deadline" class="task-deadline">{{ task.deadline }}</text>
+                  </view>
                 </view>
-                <view class="task-meta">
-                  <text :class="['assignee-badge', task.assignee]">{{ task.assigneeLabel }}</text>
-                  <text :class="['status-badge', task.status]">
-                    <text v-if="task.status === 'in-progress'" class="in-progress-dot"></text>
-                    {{ task.statusText }}
-                  </text>
-                  <text v-if="task.deadline" class="task-deadline">{{ task.deadline }}</text>
-                </view>
+              </view>
+              <view :class="['swipe-del', { show: swipedTaskId === task.id }]" @tap.stop="confirmDelete(task)">
+                <text class="swipe-del-text">{{ '删除' }}</text>
               </view>
             </view>
           </view>
@@ -212,7 +222,12 @@
     <view v-if="confirmVisible" class="confirm-mask" @tap="confirmVisible = false">
       <view class="confirm-box" @tap.stop>
         <text class="confirm-title">确认操作</text>
-        <view class="confirm-body">
+        <view v-if="confirmIsDelete" class="confirm-body">
+          <text class="confirm-text">确定要删除</text>
+          <text class="confirm-task-name">{{ confirmTaskName }}</text>
+          <text class="confirm-text">吗？删除后不可恢复。</text>
+        </view>
+        <view v-else class="confirm-body">
           <text class="confirm-text">确定要将</text>
           <text class="confirm-task-name">{{ confirmTaskName }}</text>
           <text class="confirm-text">{{ confirmPrefix }}</text>
@@ -223,8 +238,8 @@
           <view class="confirm-btn confirm-btn-cancel" @tap="confirmVisible = false">
             <text class="confirm-btn-text">取消</text>
           </view>
-          <view class="confirm-btn confirm-btn-ok" @tap="doConfirm">
-            <text class="confirm-btn-text-ok">确定</text>
+          <view :class="['confirm-btn', confirmIsDelete ? 'confirm-btn-danger' : 'confirm-btn-ok']" @tap="doConfirm">
+            <text class="confirm-btn-text-ok">{{ confirmIsDelete ? '删除' : '确定' }}</text>
           </view>
         </view>
       </view>
@@ -237,7 +252,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getTimelineList } from '@/api/timeline'
-import { getTaskList, getTaskStats, updateTaskStatus, createTask } from '@/api/task'
+import { getTaskList, getTaskStats, updateTaskStatus, deleteTask, createTask } from '@/api/task'
 
 // ---------- Types ----------
 
@@ -462,43 +477,95 @@ const confirmStatusClass = ref('')
 const confirmPrefix = ref('')
 const confirmNewStatus = ref(0)
 const confirmTaskId = ref(0)
+const confirmIsDelete = ref(false)
+
+function confirmDelete(task: Task): void {
+  confirmTaskName.value = task.name
+  confirmIsDelete.value = true
+  confirmTaskId.value = task.id
+  confirmVisible.value = true
+}
+
+// ---------- Swipe to delete ----------
+const swipedTaskId = ref(-1)
+let swipeStartX = 0
+let wasSwipe = false
+
+function onSwipeStart(e: any): void {
+  swipeStartX = e.touches[0]?.clientX ?? 0
+  wasSwipe = false
+}
+
+function onSwipeMove(): void {
+  // prevent page back gesture interference
+}
+
+function onSwipeEnd(e: any, taskId: number): void {
+  const endX = e.changedTouches[0]?.clientX ?? 0
+  const delta = endX - swipeStartX
+  if (delta < -40) {
+    swipedTaskId.value = taskId
+    wasSwipe = true
+  } else if (delta > 40) {
+    if (swipedTaskId.value === taskId) {
+      swipedTaskId.value = -1
+    }
+    wasSwipe = true
+  }
+}
+
+function handleTaskTap(stage: Stage, task: Task): void {
+  if (wasSwipe) {
+    wasSwipe = false
+    return
+  }
+  if (swipedTaskId.value !== -1) {
+    swipedTaskId.value = -1
+    return
+  }
+  toggleTask(stage, task)
+}
 
 function toggleTask(stage: Stage, task: Task): void {
+  // 已完成任务：只能删除
+  if (task.status === 'done') {
+    confirmDelete(task)
+    return
+  }
+
+  // 待办→进行中 或 进行中→已完成
   let newApiStatus: number
   let label: string
   let cls: string
-  let prefix: string
 
-  if (task.status === 'done') {
-    newApiStatus = 0
-    label = '待办'
-    cls = 'status-pending'
-    prefix = '重新设为'
-  } else if (task.status === 'pending') {
+  if (task.status === 'pending') {
     newApiStatus = 1
     label = '进行中'
     cls = 'status-active'
-    prefix = '标记为'
   } else {
     newApiStatus = 2
     label = '已完成'
     cls = 'status-done'
-    prefix = '标记为'
   }
 
   confirmTaskName.value = task.name
   confirmStatusLabel.value = label
   confirmStatusClass.value = cls
-  confirmPrefix.value = prefix
+  confirmPrefix.value = '标记为'
   confirmNewStatus.value = newApiStatus
   confirmTaskId.value = task.id
+  confirmIsDelete.value = false
   confirmVisible.value = true
 }
 
 async function doConfirm(): Promise<void> {
   confirmVisible.value = false
   try {
-    await updateTaskStatus(confirmTaskId.value, confirmNewStatus.value)
+    if (confirmIsDelete.value) {
+      await deleteTask(confirmTaskId.value)
+    } else {
+      await updateTaskStatus(confirmTaskId.value, confirmNewStatus.value)
+    }
     await loadData()
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '操作失败'
@@ -817,6 +884,8 @@ onMounted(() => {
   border-radius: 24rpx;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
   border-left: 6rpx solid $wedding-primary;
+  flex: 1;
+  min-width: 0;
 
   &.assignee-bride {
     border-left-color: #E91E63;
@@ -968,6 +1037,35 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6rpx;
+}
+
+// ---------- Swipe to delete ----------
+
+.swipe-wrap {
+  display: flex;
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.swipe-del {
+  width: 0;
+  background: #e74c3c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.25s ease;
+  flex-shrink: 0;
+}
+
+.swipe-del.show {
+  width: 140rpx;
+}
+
+.swipe-del-text {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
 }
 
 // ---------- Bottom Spacing ----------
@@ -1257,6 +1355,10 @@ onMounted(() => {
 
 .confirm-btn-ok {
   background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+}
+
+.confirm-btn-danger {
+  background: #e74c3c;
 }
 
 .confirm-btn-text-ok {
