@@ -527,9 +527,8 @@ function handleTaskTap(stage: Stage, task: Task): void {
 }
 
 function toggleTask(stage: Stage, task: Task): void {
-  // 已完成任务：只能删除
+  // 已完成任务：点击无操作，只能左滑删除
   if (task.status === 'done') {
-    confirmDelete(task)
     return
   }
 

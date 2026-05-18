@@ -543,9 +543,8 @@ function handleTaskTap(task: Task) {
 }
 
 function toggleTask(task: Task) {
-  // 已完成任务：只能删除
+  // 已完成任务：点击无操作，只能左滑删除
   if (task.status === 2) {
-    confirmDelete(task)
     return
   }
 
