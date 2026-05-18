@@ -85,6 +85,27 @@
       </view>
     </view>
 
+    <!-- 关于我们弹窗 -->
+    <view v-if="showAbout" class="popup-mask" @tap="showAbout = false">
+      <view class="popup-content" @tap.stop>
+        <view class="popup-header">
+          <text class="popup-title">关于我们</text>
+          <text class="popup-close" @tap="showAbout = false">&times;</text>
+        </view>
+        <view class="about-body">
+          <text class="about-name">备婚小助手</text>
+          <text class="about-slogan">让婚礼筹备更轻松</text>
+          <view class="about-divider" />
+          <text class="about-copyright">版权所属：公众号-AI玩技社</text>
+        </view>
+        <view class="about-footer">
+          <view class="about-btn" @tap="showAbout = false">
+            <text class="about-btn-text">知道了</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
     <!-- 个人信息编辑弹窗 -->
     <view v-if="showProfileForm" class="popup-mask" @tap="showProfileForm = false">
       <view class="popup-content" @tap.stop>
@@ -600,13 +621,10 @@ async function handleUnbind() {
   }
 }
 
+const showAbout = ref(false)
+
 function handleAbout() {
-  uni.showModal({
-    title: '关于我们',
-    content: '备婚小助手 - 让婚礼筹备更轻松',
-    showCancel: false,
-    confirmText: '知道了',
-  })
+  showAbout.value = true
 }
 
 async function handleLogout() {
@@ -1232,5 +1250,57 @@ async function handleLogout() {
   font-size: 22rpx;
   color: #999;
   margin-top: 12rpx;
+}
+
+// About popup
+
+.about-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40rpx 32rpx;
+}
+
+.about-name {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $wedding-text;
+  margin-bottom: 12rpx;
+}
+
+.about-slogan {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 32rpx;
+}
+
+.about-divider {
+  width: 80rpx;
+  height: 2rpx;
+  background: #eee;
+  margin-bottom: 32rpx;
+}
+
+.about-copyright {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.about-footer {
+  padding: 0 32rpx 32rpx;
+}
+
+.about-btn {
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border-radius: 40rpx;
+  background: linear-gradient(135deg, $wedding-primary, $wedding-accent);
+}
+
+.about-btn-text {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 500;
 }
 </style>

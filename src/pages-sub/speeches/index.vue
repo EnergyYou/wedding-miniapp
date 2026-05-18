@@ -62,15 +62,15 @@
           <text class="popup-close" @tap="showPopup = false">&times;</text>
         </view>
         <view class="form-group">
-          <text class="form-label">分类</text>
+          <text class="form-label">分类 *</text>
           <input class="form-input" v-model="form.category" placeholder="请输入分类，如：结婚邀请" />
         </view>
         <view class="form-group">
-          <text class="form-label">标题</text>
+          <text class="form-label">标题 *</text>
           <input class="form-input" v-model="form.title" placeholder="请输入标题" />
         </view>
         <view class="form-group">
-          <text class="form-label">内容</text>
+          <text class="form-label">内容 *</text>
           <textarea class="form-textarea" v-model="form.content" placeholder="请输入话术内容" />
         </view>
         <view class="form-actions">
@@ -220,10 +220,36 @@ function handleAdd() {
 }
 
 async function handleSubmit() {
-  if (!form.value.title.trim()) {
+  const category = form.value.category.trim()
+  if (!category) {
+    uni.showToast({ title: '请输入分类', icon: 'none' })
+    return
+  }
+  if (category.length > 20) {
+    uni.showToast({ title: '分类最多20个字', icon: 'none' })
+    return
+  }
+
+  const title = form.value.title.trim()
+  if (!title) {
     uni.showToast({ title: '请输入标题', icon: 'none' })
     return
   }
+  if (title.length > 50) {
+    uni.showToast({ title: '标题最多50个字', icon: 'none' })
+    return
+  }
+
+  const content = form.value.content.trim()
+  if (!content) {
+    uni.showToast({ title: '请输入内容', icon: 'none' })
+    return
+  }
+  if (content.length > 2000) {
+    uni.showToast({ title: '内容最多2000个字', icon: 'none' })
+    return
+  }
+
   try {
     if (editingId.value !== null) {
       await updateSpeech({

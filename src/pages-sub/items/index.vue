@@ -76,11 +76,11 @@
           <text class="popup-close" @tap="showForm = false">✕</text>
         </view>
         <view class="form-group">
-          <text class="form-label">物品名称</text>
+          <text class="form-label">物品名称 *</text>
           <input v-model="formData.name" class="form-input" placeholder="如：喜糖盒" />
         </view>
         <view class="form-group">
-          <text class="form-label">分类</text>
+          <text class="form-label">分类 *</text>
           <input v-model="formData.category" class="form-input" placeholder="如：喜糖" />
         </view>
         <view class="form-group">
@@ -239,15 +239,70 @@ async function handleDelete() {
 
 async function handleSubmit() {
   const d = formData.value
-  if (!d.name.trim()) {
+
+  // 物品名称校验：必填，2-30字
+  const name = d.name.trim()
+  if (!name) {
     uni.showToast({ title: '请输入物品名称', icon: 'none' })
     return
   }
+  if (name.length > 30) {
+    uni.showToast({ title: '物品名称最多30个字', icon: 'none' })
+    return
+  }
+
+  // 分类校验：必填，最多20字
+  const category = d.category ? d.category.trim() : ''
+  if (!category) {
+    uni.showToast({ title: '请输入分类', icon: 'none' })
+    return
+  }
+  if (category.length > 20) {
+    uni.showToast({ title: '分类最多20个字', icon: 'none' })
+    return
+  }
+
+  // 数量校验：非必填，正整数，上限9999
+  if (d.quantity && String(d.quantity).trim()) {
+    const qty = Number(d.quantity)
+    if (!Number.isInteger(qty) || qty < 1) {
+      uni.showToast({ title: '数量必须为正整数', icon: 'none' })
+      return
+    }
+    if (qty > 9999) {
+      uni.showToast({ title: '数量不能超过9999', icon: 'none' })
+      return
+    }
+  }
+
+  // 单价校验：非必填，正数，最多2位小数，上限999999
+  if (d.price && String(d.price).trim()) {
+    const price = parseFloat(String(d.price))
+    if (isNaN(price) || price < 0) {
+      uni.showToast({ title: '单价必须为非负数', icon: 'none' })
+      return
+    }
+    if (price > 999999) {
+      uni.showToast({ title: '单价不能超过999999', icon: 'none' })
+      return
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(String(d.price).trim())) {
+      uni.showToast({ title: '单价最多2位小数', icon: 'none' })
+      return
+    }
+  }
+
+  // 备注校验：非必填，最多100字
+  if (d.remark && d.remark.length > 100) {
+    uni.showToast({ title: '备注最多100个字', icon: 'none' })
+    return
+  }
+
   try {
     if (editingItem.value) {
       await updateItem({
         id: editingItem.value.id,
-        category: d.category || undefined,
+        category: category,
         name: d.name,
         quantity: d.quantity ? Number(d.quantity) : undefined,
         price: d.price || undefined,
@@ -256,7 +311,7 @@ async function handleSubmit() {
       })
     } else {
       await createItem({
-        category: d.category || undefined,
+        category: category,
         name: d.name,
         quantity: d.quantity ? Number(d.quantity) : undefined,
         price: d.price || undefined,

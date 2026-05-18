@@ -124,11 +124,11 @@
           <text class="popup-close" @tap="showForm = false">✕</text>
         </view>
         <view class="form-group">
-          <text class="form-label">分类名称</text>
+          <text class="form-label">分类名称 *</text>
           <input v-model="formData.category" class="form-input" placeholder="如：婚宴酒店" />
         </view>
         <view class="form-group">
-          <text class="form-label">预算金额 (元)</text>
+          <text class="form-label">预算金额 (元) *</text>
           <input v-model="formData.plannedAmount" class="form-input" type="digit" placeholder="0.00" />
         </view>
         <view class="form-group">
@@ -291,14 +291,60 @@ const formData = ref({ category: '', plannedAmount: '', actualAmount: '', remark
 
 async function handleSubmit() {
   const d = formData.value
-  if (!d.category.trim()) {
+
+  // 分类名称校验：必填，2-20字
+  const category = d.category.trim()
+  if (!category) {
     uni.showToast({ title: '请输入分类名称', icon: 'none' })
     return
   }
-  if (!d.plannedAmount || parseFloat(d.plannedAmount) <= 0) {
+  if (category.length > 20) {
+    uni.showToast({ title: '分类名称最多20个字', icon: 'none' })
+    return
+  }
+
+  // 预算金额校验：必填，正数，最多2位小数，上限999999
+  if (!d.plannedAmount) {
     uni.showToast({ title: '请输入预算金额', icon: 'none' })
     return
   }
+  const planned = parseFloat(d.plannedAmount)
+  if (isNaN(planned) || planned <= 0) {
+    uni.showToast({ title: '预算金额必须为正数', icon: 'none' })
+    return
+  }
+  if (planned > 999999) {
+    uni.showToast({ title: '预算金额不能超过999999', icon: 'none' })
+    return
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(String(d.plannedAmount))) {
+    uni.showToast({ title: '预算金额最多2位小数', icon: 'none' })
+    return
+  }
+
+  // 实际支出校验：非必填，正数，最多2位小数
+  if (d.actualAmount && d.actualAmount.trim()) {
+    const actual = parseFloat(d.actualAmount)
+    if (isNaN(actual) || actual < 0) {
+      uni.showToast({ title: '实际支出必须为非负数', icon: 'none' })
+      return
+    }
+    if (actual > 999999) {
+      uni.showToast({ title: '实际支出不能超过999999', icon: 'none' })
+      return
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(d.actualAmount.trim())) {
+      uni.showToast({ title: '实际支出最多2位小数', icon: 'none' })
+      return
+    }
+  }
+
+  // 备注校验：非必填，最多100字
+  if (d.remark && d.remark.length > 100) {
+    uni.showToast({ title: '备注最多100个字', icon: 'none' })
+    return
+  }
+
   try {
     if (editingBudget.value) {
       await updateBudget({

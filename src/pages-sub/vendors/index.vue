@@ -90,7 +90,7 @@
 
         <!-- 分类 -->
         <view class="form-group">
-          <text class="form-label">分类</text>
+          <text class="form-label">分类 *</text>
           <input
             v-model="form.category"
             class="form-input"
@@ -250,8 +250,40 @@ function closeForm() {
 }
 
 async function handleSubmit() {
-  if (!form.value.name.trim()) {
+  const name = form.value.name.trim()
+  if (!name) {
     uni.showToast({ title: '请输入供应商名称', icon: 'none' })
+    return
+  }
+  if (name.length > 30) {
+    uni.showToast({ title: '名称最多30个字', icon: 'none' })
+    return
+  }
+
+  const category = form.value.category.trim()
+  if (!category) {
+    uni.showToast({ title: '请输入分类', icon: 'none' })
+    return
+  }
+  if (category.length > 20) {
+    uni.showToast({ title: '分类最多20个字', icon: 'none' })
+    return
+  }
+
+  if (form.value.priceQuote && form.value.priceQuote.trim()) {
+    const price = Number(form.value.priceQuote)
+    if (isNaN(price) || price < 0) {
+      uni.showToast({ title: '报价必须为非负数', icon: 'none' })
+      return
+    }
+    if (price > 999999) {
+      uni.showToast({ title: '报价不能超过999999', icon: 'none' })
+      return
+    }
+  }
+
+  if (form.value.remark && form.value.remark.length > 100) {
+    uni.showToast({ title: '备注最多100个字', icon: 'none' })
     return
   }
 

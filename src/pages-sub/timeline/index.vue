@@ -615,11 +615,19 @@ async function handleSubmit(): Promise<void> {
     // 设置了提醒时间时，请求订阅消息授权
     if (remindTime) {
       try {
-        await uni.requestSubscribeMessage({
+        // @ts-ignore 微信小程序订阅消息
+        uni.requestSubscribeMessage({
           tmplIds: [import.meta.env.VITE_WX_TEMPLATE_ID || ''],
+          success: (res: any) => {
+            console.log('requestSubscribeMessage success:', res)
+          },
+          fail: (err: any) => {
+            console.error('requestSubscribeMessage fail:', err)
+            uni.showToast({ title: '订阅授权失败: ' + (err.errMsg || ''), icon: 'none', duration: 3000 })
+          },
         })
-      } catch {
-        console.warn('requestSubscribeMessage cancelled or failed')
+      } catch (e: any) {
+        console.error('requestSubscribeMessage error:', e)
       }
     }
 
