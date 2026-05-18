@@ -612,6 +612,17 @@ async function handleSubmit(): Promise<void> {
       ? `${formData.value.remindDate} ${formData.value.remindTimeValue}:00`
       : undefined
 
+    // 设置了提醒时间时，请求订阅消息授权
+    if (remindTime) {
+      try {
+        await uni.requestSubscribeMessage({
+          tmplIds: [import.meta.env.VITE_WX_TEMPLATE_ID || ''],
+        })
+      } catch {
+        console.warn('requestSubscribeMessage cancelled or failed')
+      }
+    }
+
     await createTask({
       timelineId: formData.value.timelineId,
       title: formData.value.title.trim(),

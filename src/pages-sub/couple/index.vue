@@ -105,7 +105,7 @@ function handleCopy() {
 // 微信分享 - 通过 uni-app 生命周期
 onShareAppMessage(() => ({
   title: '快来和我一起备婚吧',
-  path: `/pages/couple/index?inviteCode=${inviteCode.value}`,
+  path: `/pages-sub/couple/index?inviteCode=${inviteCode.value}`,
 }))
 
 // 绑定

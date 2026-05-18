@@ -576,7 +576,7 @@ async function handleConfirmDate() {
 }
 
 function handleGoCouple() {
-  uni.navigateTo({ url: '/pages/couple/index' })
+  uni.navigateTo({ url: '/pages-sub/couple/index' })
 }
 
 async function handleUnbind() {

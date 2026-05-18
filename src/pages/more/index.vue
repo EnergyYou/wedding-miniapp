@@ -10,56 +10,56 @@
 
     <!-- 2x4 网格布局 -->
     <view class="tool-grid">
-      <view class="tool-card" @tap="navigateTo('/pages/items/index')">
+      <view class="tool-card" @tap="navigateTo('/pages-sub/items/index')">
         <view class="tool-icon-wrap" style="background: #FFF0F5">
           <text class="tool-emoji">{{ '📦' }}</text>
         </view>
         <text class="tool-name">物品清单</text>
       </view>
 
-      <view class="tool-card" @tap="navigateTo('/pages/vendors/index')">
+      <view class="tool-card" @tap="navigateTo('/pages-sub/vendors/index')">
         <view class="tool-icon-wrap" style="background: #E8F5E9">
           <text class="tool-emoji">{{ '🏠' }}</text>
         </view>
         <text class="tool-name">供应商</text>
       </view>
 
-      <view class="tool-card" @tap="navigateTo('/pages/speeches/index')">
+      <view class="tool-card" @tap="navigateTo('/pages-sub/speeches/index')">
         <view class="tool-icon-wrap" style="background: #E3F2FD">
           <text class="tool-emoji">{{ '📝' }}</text>
         </view>
         <text class="tool-name">婚礼话术</text>
       </view>
 
-      <view class="tool-card" @tap="navigateTo('/pages/timeline/index')">
+      <view class="tool-card" @tap="navigateTo('/pages-sub/timeline/index')">
         <view class="tool-icon-wrap" style="background: #FFF8E1">
           <text class="tool-emoji">{{ '📅' }}</text>
         </view>
         <text class="tool-name">备婚时间线</text>
       </view>
 
-      <view class="tool-card" @tap="navigateTo('/pages/collaboration/index')">
+      <view class="tool-card" @tap="navigateTo('/pages-sub/collaboration/index')">
         <view class="tool-icon-wrap" style="background: #FCE4EC">
           <text class="tool-emoji">{{ '💑' }}</text>
         </view>
         <text class="tool-name">双人协作</text>
       </view>
 
-      <view class="tool-card" @tap="navigateTo('/pages/reminder/index')">
+      <view class="tool-card" @tap="navigateTo('/pages-sub/reminder/index')">
         <view class="tool-icon-wrap" style="background: #FFF3E0">
           <text class="tool-emoji">{{ '🔔' }}</text>
         </view>
         <text class="tool-name">提醒设置</text>
       </view>
 
-      <view class="tool-card" @tap="navigateTo('/pages/guide/index')">
+      <view class="tool-card" @tap="navigateTo('/pages-sub/guide/index')">
         <view class="tool-icon-wrap" style="background: #E8EAF6">
           <text class="tool-emoji">{{ '📖' }}</text>
         </view>
         <text class="tool-name">备婚攻略</text>
       </view>
 
-      <view class="tool-card" @tap="navigateTo('/pages/tasklist/index')">
+      <view class="tool-card" @tap="navigateTo('/pages-sub/tasklist/index')">
         <view class="tool-icon-wrap" style="background: #F3E5F5">
           <text class="tool-emoji">{{ '✅' }}</text>
         </view>

@@ -119,6 +119,16 @@ async function confirmEdit() {
   }
 
   const remindTime = `${editRemindDate.value} ${editRemindTime.value}:00`
+
+  // 请求订阅消息授权
+  try {
+    await uni.requestSubscribeMessage({
+      tmplIds: [import.meta.env.VITE_WX_TEMPLATE_ID || ''],
+    })
+  } catch {
+    console.warn('requestSubscribeMessage cancelled or failed')
+  }
+
   try {
     await updateTaskRemind(editingTask.value.id, remindTime)
     uni.showToast({ title: '修改成功', icon: 'success' })

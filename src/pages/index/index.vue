@@ -337,22 +337,22 @@ async function handleLogin() {
 
 // ── Navigation ─────────────────────────────────────────────
 function goToCoupleBind() {
-  uni.navigateTo({ url: '/pages/couple/index' })
+  uni.navigateTo({ url: '/pages-sub/couple/index' })
 }
 
 function goToTimeline(stageId?: number) {
   const url = stageId
-    ? `/pages/timeline/index?stageId=${stageId}`
-    : '/pages/timeline/index'
+    ? `/pages-sub/timeline/index?stageId=${stageId}`
+    : '/pages-sub/timeline/index'
   uni.navigateTo({ url })
 }
 
 function goToTaskList() {
-  uni.navigateTo({ url: '/pages/tasklist/index' })
+  uni.navigateTo({ url: '/pages-sub/tasklist/index' })
 }
 
 function goToAddTask() {
-  uni.navigateTo({ url: '/pages/timeline/index?autoAdd=true' })
+  uni.navigateTo({ url: '/pages-sub/timeline/index?autoAdd=true' })
 }
 
 function goToBudget() {

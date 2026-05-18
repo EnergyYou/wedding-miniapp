@@ -77,7 +77,7 @@ function switchCategory(cat: string) {
 }
 
 function goToDetail(id: number) {
-  uni.navigateTo({ url: `/pages/guide/detail?id=${id}` })
+  uni.navigateTo({ url: `/pages-sub/guide/detail?id=${id}` })
 }
 </script>
 
