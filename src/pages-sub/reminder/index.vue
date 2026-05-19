@@ -79,9 +79,15 @@ import { getTasksWithReminders, updateTaskRemind, type Task } from '@/api/task'
 
 const tasks = ref<Task[]>([])
 
-// 已完成且已提醒的任务不展示
+// 已完成的任务不展示，未完成的按截止时间排序
 const filteredTasks = computed(() =>
-  tasks.value.filter(t => !(t.status === 2 && t.remindSent === 1))
+  tasks.value
+    .filter(t => t.status !== 2)
+    .sort((a, b) => {
+      const da = a.deadline ? new Date(a.deadline).getTime() : Infinity
+      const db = b.deadline ? new Date(b.deadline).getTime() : Infinity
+      return da - db
+    })
 )
 
 const showEditPopup = ref(false)
