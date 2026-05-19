@@ -1,13 +1,16 @@
 <template>
   <view class="page">
     <!-- 提醒任务列表 -->
-    <view v-if="tasks.length" class="task-list">
-      <view v-for="task in tasks" :key="task.id" class="task-card">
+    <view v-if="filteredTasks.length" class="task-list">
+      <view v-for="task in filteredTasks" :key="task.id" class="task-card">
         <view class="task-header">
           <text class="task-title">{{ task.title }}</text>
-          <text :class="['task-status', task.status === 2 ? 'done' : task.status === 1 ? 'active' : 'pending']">
-            {{ task.status === 2 ? '已完成' : task.status === 1 ? '进行中' : '待办' }}
-          </text>
+          <view class="task-badges">
+            <text v-if="task.remindSent === 1" class="badge-reminded">已提醒</text>
+            <text :class="['task-status', task.status === 2 ? 'done' : task.status === 1 ? 'active' : 'pending']">
+              {{ task.status === 2 ? '已完成' : task.status === 1 ? '进行中' : '待办' }}
+            </text>
+          </view>
         </view>
         <view class="task-meta">
           <view class="meta-row">
@@ -34,7 +37,7 @@
       </view>
     </view>
 
-    <view v-else class="empty-state">
+    <view v-if="!filteredTasks.length" class="empty-state">
       <text class="empty-icon">&#x1F514;</text>
       <text class="empty-text">暂无设置提醒的任务</text>
       <text class="empty-hint">在添加或编辑任务时可以设置提醒时间</text>
@@ -70,11 +73,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getTasksWithReminders, updateTaskRemind, type Task } from '@/api/task'
 
 const tasks = ref<Task[]>([])
+
+// 已完成且已提醒的任务不展示
+const filteredTasks = computed(() =>
+  tasks.value.filter(t => !(t.status === 2 && t.remindSent === 1))
+)
+
 const showEditPopup = ref(false)
 const editingTask = ref<Task | null>(null)
 const editRemindDate = ref('')
@@ -199,6 +208,22 @@ onShow(() => loadData())
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20rpx;
+}
+
+.task-badges {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.badge-reminded {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  background: #E3F2FD;
+  color: #1976D2;
 }
 
 .task-title {

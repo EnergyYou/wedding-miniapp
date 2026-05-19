@@ -2,6 +2,7 @@ import { useUserStore } from '@/store/user'
 import { useCoupleStore } from '@/store/couple'
 import { wxLogin } from '@/api/user'
 import { getCoupleInfo } from '@/api/couple'
+import { getProfile } from '@/api/profile'
 
 export async function silentLogin(): Promise<boolean> {
   const userStore = useUserStore()
@@ -32,6 +33,20 @@ export async function silentLogin(): Promise<boolean> {
       nickName: data.nickName || '新用户',
       avatar: data.avatar || '',
     })
+
+    // 登录后拉取完整用户信息（含性别、手机号等）
+    try {
+      const profile = await getProfile()
+      userStore.setUserInfo({
+        userId: String(data.userId),
+        nickName: profile.nickName || userStore.nickName,
+        avatar: profile.avatar || userStore.avatar,
+        sex: profile.sex,
+        phonenumber: profile.phonenumber,
+      })
+    } catch {
+      // 个人信息获取失败不影响登录流程
+    }
 
     // 已绑定情侣，加载情侣信息
     if (data.coupleBound) {

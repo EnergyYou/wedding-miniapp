@@ -11,6 +11,7 @@ export interface Task {
   priority: number // 1-高 2-中 3-低
   deadline: string | null
   remindTime: string | null
+  remindSent: number // 0-未发送 1-已发送
   completeTime: string | null
   createTime: string
 }
