@@ -16,3 +16,4 @@ unpackage/
 # Logs
 *.log
 npm-debug.log*
+bash.exe.stackdump
