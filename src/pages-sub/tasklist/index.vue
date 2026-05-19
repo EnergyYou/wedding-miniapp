@@ -118,6 +118,17 @@
           </picker>
         </view>
         <view class="form-group">
+          <text class="form-label">提醒时间</text>
+          <view class="remind-row">
+            <picker mode="date" @change="onRemindDateChange">
+              <view class="form-input form-date remind-field">{{ editForm.remindDate || '选择日期' }}</view>
+            </picker>
+            <picker mode="time" @change="onRemindTimeChange">
+              <view class="form-input form-date remind-field">{{ editForm.remindTime || '选择时间' }}</view>
+            </picker>
+          </view>
+        </view>
+        <view class="form-group">
           <text class="form-label">任务描述</text>
           <input v-model="editForm.description" class="form-input" placeholder="可选" maxlength="200" />
         </view>
@@ -302,7 +313,7 @@ onShow(() => loadData())
 
 // ---------- Edit Task ----------
 const showEdit = ref(false)
-const editForm = ref({ id: 0, title: '', assignee: 0, priority: 2, deadline: '', description: '' })
+const editForm = ref({ id: 0, title: '', assignee: 0, priority: 2, deadline: '', description: '', remindDate: '', remindTime: '' })
 
 function openEdit(task: Task) {
   editForm.value = {
@@ -312,6 +323,8 @@ function openEdit(task: Task) {
     priority: task.priority,
     deadline: task.deadline ? task.deadline.substring(0, 10) : '',
     description: task.description || '',
+    remindDate: task.remindTime ? task.remindTime.substring(0, 10) : '',
+    remindTime: task.remindTime ? task.remindTime.substring(11, 16) : '',
   }
   showEdit.value = true
 }
@@ -320,11 +333,22 @@ function onDeadlineChange(e: { detail: { value: string } }) {
   editForm.value.deadline = e.detail.value
 }
 
+function onRemindDateChange(e: { detail: { value: string } }) {
+  editForm.value.remindDate = e.detail.value
+}
+
+function onRemindTimeChange(e: { detail: { value: string } }) {
+  editForm.value.remindTime = e.detail.value
+}
+
 async function submitEdit() {
   if (!editForm.value.title.trim()) {
     uni.showToast({ title: '请输入任务名称', icon: 'none' })
     return
   }
+  const remindTime = (editForm.value.remindDate && editForm.value.remindTime)
+    ? `${editForm.value.remindDate} ${editForm.value.remindTime}:00`
+    : undefined
   try {
     await updateTask({
       id: editForm.value.id,
@@ -333,6 +357,7 @@ async function submitEdit() {
       priority: editForm.value.priority,
       deadline: editForm.value.deadline || undefined,
       description: editForm.value.description || undefined,
+      remindTime,
     })
     showEdit.value = false
     uni.showToast({ title: '修改成功', icon: 'success' })
@@ -731,6 +756,15 @@ async function submitEdit() {
   align-items: center;
   color: #333;
   line-height: 80rpx;
+}
+
+.remind-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.remind-field {
+  flex: 1;
 }
 
 .form-picker {
